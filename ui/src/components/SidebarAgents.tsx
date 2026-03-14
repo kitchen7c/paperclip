@@ -16,6 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { Agent } from "@paperclipai/shared";
+import { useTranslation } from "react-i18next";
 
 /** BFS sort: roots first (no reportsTo), then their direct reports, etc. */
 function sortByHierarchy(agents: Agent[]): Agent[] {
@@ -39,6 +40,7 @@ function sortByHierarchy(agents: Agent[]): Agent[] {
 }
 
 export function SidebarAgents() {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const { selectedCompanyId } = useCompany();
   const { openNewAgent } = useDialog();
@@ -88,8 +90,7 @@ export function SidebarAgents() {
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
-              Agents
-            </span>
+              {t("Agents")}</span>
           </CollapsibleTrigger>
           <button
             onClick={(e) => {
@@ -97,7 +98,7 @@ export function SidebarAgents() {
               openNewAgent();
             }}
             className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label="New agent"
+            aria-label={t("New agent")}
           >
             <Plus className="h-3 w-3" />
           </button>

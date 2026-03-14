@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AGENT_ROLE_LABELS } from "@paperclipai/shared";
+import { useTranslation } from "react-i18next";
 
 /* ---- Help text for (?) tooltips ---- */
 export const help: Record<string, string> = {
@@ -73,6 +74,7 @@ export const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 /* ---- Primitive components ---- */
 
 export function HintIcon({ text }: { text: string }) {
+    const { t } = useTranslation();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -88,6 +90,7 @@ export function HintIcon({ text }: { text: string }) {
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    const { t } = useTranslation();
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1">
@@ -110,6 +113,7 @@ export function ToggleField({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+    const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1.5">
@@ -157,6 +161,7 @@ export function ToggleWithNumber({
   numberPrefix?: string;
   showNumber: boolean;
 }) {
+    const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -211,6 +216,7 @@ export function CollapsibleSection({
   bordered?: boolean;
   children: React.ReactNode;
 }) {
+    const { t } = useTranslation();
   return (
     <div className={cn(bordered && "border-t border-border")}>
       <button
@@ -239,6 +245,7 @@ export function AutoExpandTextarea({
   placeholder?: string;
   minRows?: number;
 }) {
+    const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const rows = minRows ?? 3;
   const lineHeight = 20;
@@ -282,6 +289,7 @@ export function DraftInput({
   immediate?: boolean;
   className?: string;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "className">) {
+    const { t } = useTranslation();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
 
@@ -317,6 +325,7 @@ export function DraftTextarea({
   placeholder?: string;
   minRows?: number;
 }) {
+    const { t } = useTranslation();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
 
@@ -367,6 +376,7 @@ export function DraftNumberInput({
   immediate?: boolean;
   className?: string;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "className" | "type">) {
+    const { t } = useTranslation();
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
 
@@ -393,6 +403,7 @@ export function DraftNumberInput({
  * type the path due to browser security limitations.
  */
 export function ChoosePathButton() {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -401,12 +412,11 @@ export function ChoosePathButton() {
         className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors shrink-0"
         onClick={() => setOpen(true)}
       >
-        Choose
-      </button>
+        {t("Choose")}</button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Specify path manually</DialogTitle>
+            <DialogTitle>{t("Specify path manually")}</DialogTitle>
             <DialogDescription>
               Browser security blocks apps from reading full local paths via a file picker.
               Copy the absolute path and paste it into the input.
@@ -414,42 +424,40 @@ export function ChoosePathButton() {
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <section className="space-y-1.5">
-              <p className="font-medium">macOS (Finder)</p>
+              <p className="font-medium">{t("macOS (Finder)")}</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Find the folder in Finder.</li>
-                <li>Hold <kbd>Option</kbd> and right-click the folder.</li>
-                <li>Click "Copy &lt;folder name&gt; as Pathname".</li>
-                <li>Paste the result into the path input.</li>
+                <li>{t("Find the folder in Finder.")}</li>
+                <li>{t("Hold")}<kbd>{t("Option")}</kbd> {t("and right-click the folder.")}</li>
+                <li>{t("Click \"Copy <folder name> as Pathname\".")}</li>
+                <li>{t("Paste the result into the path input.")}</li>
               </ol>
               <p className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
                 /Users/yourname/Documents/project
               </p>
             </section>
             <section className="space-y-1.5">
-              <p className="font-medium">Windows (File Explorer)</p>
+              <p className="font-medium">{t("Windows (File Explorer)")}</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Find the folder in File Explorer.</li>
-                <li>Hold <kbd>Shift</kbd> and right-click the folder.</li>
-                <li>Click "Copy as path".</li>
-                <li>Paste the result into the path input.</li>
+                <li>{t("Find the folder in File Explorer.")}</li>
+                <li>{t("Hold")}<kbd>{t("Shift")}</kbd> {t("and right-click the folder.")}</li>
+                <li>{t("Click \"Copy as path\".")}</li>
+                <li>{t("Paste the result into the path input.")}</li>
               </ol>
               <p className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
-                C:\Users\yourname\Documents\project
-              </p>
+                {t("C:\Users\yourname\Documents\project")}</p>
             </section>
             <section className="space-y-1.5">
-              <p className="font-medium">Terminal fallback (macOS/Linux)</p>
+              <p className="font-medium">{t("Terminal fallback (macOS/Linux)")}</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Run <code>cd /path/to/folder</code>.</li>
-                <li>Run <code>pwd</code>.</li>
-                <li>Copy the output and paste it into the path input.</li>
+                <li>{t("Run")}<code>{t("cd /path/to/folder")}</code>.</li>
+                <li>{t("Run")}<code>{t("pwd")}</code>.</li>
+                <li>{t("Copy the output and paste it into the path input.")}</li>
               </ol>
             </section>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              OK
-            </Button>
+              {t("OK")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -461,6 +469,7 @@ export function ChoosePathButton() {
  * Label + input rendered on the same line (inline layout for compact fields).
  */
 export function InlineField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-1.5 shrink-0">

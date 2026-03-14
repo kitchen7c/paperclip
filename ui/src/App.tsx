@@ -35,12 +35,14 @@ import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
 import { loadLastInboxTab } from "./lib/inbox";
+import { useTranslation } from "react-i18next";
 
 function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: boolean }) {
+    const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Instance setup required</h1>
+        <h1 className="text-xl font-semibold">{t("Instance setup required")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {hasActiveInvite
             ? "No instance admin exists yet. A bootstrap invite is already active. Check your Paperclip startup logs for the first admin invite URL, or run this command to rotate it:"
@@ -55,6 +57,7 @@ function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: b
 }
 
 function CloudAccessGate() {
+    const { t } = useTranslation();
   const location = useLocation();
   const healthQuery = useQuery({
     queryKey: queryKeys.health,
@@ -80,7 +83,7 @@ function CloudAccessGate() {
   });
 
   if (healthQuery.isLoading || (isAuthenticatedMode && sessionQuery.isLoading)) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">{t("Loading...")}</div>;
   }
 
   if (healthQuery.error) {
@@ -157,15 +160,18 @@ function boardRoutes() {
 }
 
 function InboxRootRedirect() {
+    const { t } = useTranslation();
   return <Navigate to={`/inbox/${loadLastInboxTab()}`} replace />;
 }
 
 function LegacySettingsRedirect() {
+    const { t } = useTranslation();
   const location = useLocation();
   return <Navigate to={`/instance/settings${location.search}${location.hash}`} replace />;
 }
 
 function OnboardingRoutePage() {
+    const { t } = useTranslation();
   const { companies, loading } = useCompany();
   const { onboardingOpen, openOnboarding } = useDialog();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
@@ -217,11 +223,12 @@ function OnboardingRoutePage() {
 }
 
 function CompanyRootRedirect() {
+    const { t } = useTranslation();
   const { companies, selectedCompany, loading } = useCompany();
   const { onboardingOpen } = useDialog();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">{t("Loading...")}</div>;
   }
 
   // Keep the first-run onboarding mounted until it completes.
@@ -238,11 +245,12 @@ function CompanyRootRedirect() {
 }
 
 function UnprefixedBoardRedirect() {
+    const { t } = useTranslation();
   const location = useLocation();
   const { companies, selectedCompany, loading } = useCompany();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">{t("Loading...")}</div>;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
@@ -259,6 +267,7 @@ function UnprefixedBoardRedirect() {
 }
 
 function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
+    const { t } = useTranslation();
   const { openOnboarding } = useDialog();
   const opened = useRef(false);
 
@@ -272,12 +281,11 @@ function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Create your first company</h1>
+        <h1 className="text-xl font-semibold">{t("Create your first company")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
-        </p>
+          {t("Get started by creating a company.")}</p>
         <div className="mt-4">
-          <Button onClick={() => openOnboarding()}>New Company</Button>
+          <Button onClick={() => openOnboarding()}>{t("New Company")}</Button>
         </div>
       </div>
     </div>
@@ -285,6 +293,7 @@ function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
 }
 
 export function App() {
+    const { t } = useTranslation();
   return (
     <>
       <Routes>

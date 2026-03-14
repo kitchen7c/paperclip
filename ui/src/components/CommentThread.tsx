@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import type { IssueComment, Agent } from "@paperclipai/shared";
@@ -124,6 +125,7 @@ const TimelineList = memo(function TimelineList({
   agentMap?: Map<string, Agent>;
   highlightCommentId?: string | null;
 }) {
+  const { t } = useTranslation();
   if (timeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No comments or runs yet.</p>;
   }

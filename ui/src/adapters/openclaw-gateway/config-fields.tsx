@@ -10,6 +10,7 @@ import {
   PayloadTemplateJsonField,
   RuntimeServicesJsonField,
 } from "../runtime-json-fields";
+import { useTranslation } from "react-i18next";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -25,6 +26,7 @@ function SecretField({
   onCommit: (v: string) => void;
   placeholder?: string;
 }) {
+    const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   return (
     <Field label={label}>
@@ -64,6 +66,7 @@ export function OpenClawGatewayConfigFields({
   eff,
   mark,
 }: AdapterConfigFieldsProps) {
+    const { t } = useTranslation();
   const configuredHeaders =
     config.headers && typeof config.headers === "object" && !Array.isArray(config.headers)
       ? (config.headers as Record<string, unknown>)
@@ -98,7 +101,7 @@ export function OpenClawGatewayConfigFields({
 
   return (
     <>
-      <Field label="Gateway URL" hint={help.webhookUrl}>
+      <Field label={t("Gateway URL")} hint={help.webhookUrl}>
         <DraftInput
           value={
             isCreate
@@ -112,7 +115,7 @@ export function OpenClawGatewayConfigFields({
           }
           immediate
           className={inputClass}
-          placeholder="ws://127.0.0.1:18789"
+          placeholder={t("ws://127.0.0.1:18789")}
         />
       </Field>
 
@@ -134,7 +137,7 @@ export function OpenClawGatewayConfigFields({
 
       {!isCreate && (
         <>
-          <Field label="Paperclip API URL override">
+          <Field label={t("Paperclip API URL override")}>
             <DraftInput
               value={
                 eff(
@@ -146,52 +149,52 @@ export function OpenClawGatewayConfigFields({
               onCommit={(v) => mark("adapterConfig", "paperclipApiUrl", v || undefined)}
               immediate
               className={inputClass}
-              placeholder="https://paperclip.example"
+              placeholder={t("https://paperclip.example")}
             />
           </Field>
 
-          <Field label="Session strategy">
+          <Field label={t("Session strategy")}>
             <select
               value={sessionStrategy}
               onChange={(e) => mark("adapterConfig", "sessionKeyStrategy", e.target.value)}
               className={inputClass}
             >
-              <option value="fixed">Fixed</option>
-              <option value="issue">Per issue</option>
-              <option value="run">Per run</option>
+              <option value="fixed">{t("Fixed")}</option>
+              <option value="issue">{t("Per issue")}</option>
+              <option value="run">{t("Per run")}</option>
             </select>
           </Field>
 
           {sessionStrategy === "fixed" && (
-            <Field label="Session key">
+            <Field label={t("Session key")}>
               <DraftInput
                 value={eff("adapterConfig", "sessionKey", String(config.sessionKey ?? "paperclip"))}
                 onCommit={(v) => mark("adapterConfig", "sessionKey", v || undefined)}
                 immediate
                 className={inputClass}
-                placeholder="paperclip"
+                placeholder={t("paperclip")}
               />
             </Field>
           )}
 
           <SecretField
-            label="Gateway auth token (x-openclaw-token)"
+            label={t("Gateway auth token (x-openclaw-token)")}
             value={effectiveGatewayToken}
             onCommit={commitGatewayToken}
-            placeholder="OpenClaw gateway token"
+            placeholder={t("OpenClaw gateway token")}
           />
 
-          <Field label="Role">
+          <Field label={t("Role")}>
             <DraftInput
               value={eff("adapterConfig", "role", String(config.role ?? "operator"))}
               onCommit={(v) => mark("adapterConfig", "role", v || undefined)}
               immediate
               className={inputClass}
-              placeholder="operator"
+              placeholder={t("operator")}
             />
           </Field>
 
-          <Field label="Scopes (comma-separated)">
+          <Field label={t("Scopes (comma-separated)")}>
             <DraftInput
               value={eff("adapterConfig", "scopes", parseScopes(config.scopes ?? ["operator.admin"]))}
               onCommit={(v) => {
@@ -203,11 +206,11 @@ export function OpenClawGatewayConfigFields({
               }}
               immediate
               className={inputClass}
-              placeholder="operator.admin"
+              placeholder={t("operator.admin")}
             />
           </Field>
 
-          <Field label="Wait timeout (ms)">
+          <Field label={t("Wait timeout (ms)")}>
             <DraftInput
               value={eff("adapterConfig", "waitTimeoutMs", String(config.waitTimeoutMs ?? "120000"))}
               onCommit={(v) => {
@@ -224,7 +227,7 @@ export function OpenClawGatewayConfigFields({
             />
           </Field>
 
-          <Field label="Device auth">
+          <Field label={t("Device auth")}>
             <div className="text-xs text-muted-foreground leading-relaxed">
               Always enabled for gateway agents. Paperclip persists a device key during onboarding so pairing approvals
               remain stable across runs.

@@ -11,6 +11,7 @@ import {
   User,
   Wrench,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export type TranscriptMode = "nice" | "raw";
 export type TranscriptDensity = "comfortable" | "compact";
@@ -518,6 +519,7 @@ function TranscriptMessageBlock({
   block: Extract<TranscriptBlock, { type: "message" }>;
   density: TranscriptDensity;
 }) {
+    const { t } = useTranslation();
   const isAssistant = block.role === "assistant";
   const compact = density === "compact";
 
@@ -526,7 +528,7 @@ function TranscriptMessageBlock({
       {!isAssistant && (
         <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           <User className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
-          <span>User</span>
+          <span>{t("User")}</span>
         </div>
       )}
       <MarkdownBody
@@ -543,8 +545,7 @@ function TranscriptMessageBlock({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-70" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
           </span>
-          Streaming
-        </div>
+          {t("Streaming")}</div>
       )}
     </div>
   );
@@ -559,6 +560,7 @@ function TranscriptThinkingBlock({
   density: TranscriptDensity;
   className?: string;
 }) {
+    const { t } = useTranslation();
   return (
     <MarkdownBody
       className={cn(
@@ -579,6 +581,7 @@ function TranscriptToolCard({
   block: Extract<TranscriptBlock, { type: "tool" }>;
   density: TranscriptDensity;
 }) {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(block.status === "error");
   const compact = density === "compact";
   const parsedResult = parseStructuredToolResult(block.result);
@@ -650,16 +653,14 @@ function TranscriptToolCard({
             <div className={cn("grid gap-3", compact ? "grid-cols-1" : "lg:grid-cols-2")}>
               <div>
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Input
-                </div>
+                  {t("Input")}</div>
                 <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/80">
                   {formatToolPayload(block.input) || "<empty>"}
                 </pre>
               </div>
               <div>
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Result
-                </div>
+                  {t("Result")}</div>
                 <pre className={cn(
                   "overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px]",
                   block.status === "error" ? "text-red-700 dark:text-red-300" : "text-foreground/80",
@@ -687,6 +688,7 @@ function TranscriptCommandGroup({
   block: Extract<TranscriptBlock, { type: "command_group" }>;
   density: TranscriptDensity;
 }) {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const compact = density === "compact";
   const runningItem = [...block.items].reverse().find((item) => item.status === "running");
@@ -751,8 +753,7 @@ function TranscriptCommandGroup({
           )}
           {!subtitle && latestItem?.status === "error" && open && (
             <div className={cn("mt-1", compact ? "text-xs" : "text-sm", statusTone)}>
-              Command failed
-            </div>
+              {t("Command failed")}</div>
           )}
         </div>
         <button
@@ -812,6 +813,7 @@ function TranscriptActivityRow({
   block: Extract<TranscriptBlock, { type: "activity" }>;
   density: TranscriptDensity;
 }) {
+    const { t } = useTranslation();
   return (
     <div className="flex items-start gap-2">
       {block.status === "completed" ? (
@@ -839,6 +841,7 @@ function TranscriptEventRow({
   block: Extract<TranscriptBlock, { type: "event" }>;
   density: TranscriptDensity;
 }) {
+    const { t } = useTranslation();
   const compact = density === "compact";
   const toneClasses =
     block.tone === "error"
@@ -892,14 +895,14 @@ function TranscriptStdoutRow({
   density: TranscriptDensity;
   collapseByDefault: boolean;
 }) {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(!collapseByDefault);
 
   return (
     <div>
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          stdout
-        </span>
+          {t("stdout")}</span>
         <button
           type="button"
           className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
@@ -928,6 +931,7 @@ function RawTranscriptView({
   entries: TranscriptEntry[];
   density: TranscriptDensity;
 }) {
+    const { t } = useTranslation();
   const compact = density === "compact";
   return (
     <div className={cn("font-mono", compact ? "space-y-1 text-[11px]" : "space-y-1.5 text-xs")}>
@@ -970,6 +974,7 @@ export function RunTranscriptView({
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {
+    const { t } = useTranslation();
   const blocks = useMemo(() => normalizeTranscript(entries, streaming), [entries, streaming]);
   const visibleBlocks = limit ? blocks.slice(-limit) : blocks;
   const visibleEntries = limit ? entries.slice(-limit) : entries;

@@ -17,6 +17,7 @@ import { AlertCircle, Check, ExternalLink, Github, Loader2, Plus, Trash2, X } fr
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { DraftInput } from "./agent-config-primitives";
 import { InlineEditor } from "./InlineEditor";
+import { useTranslation } from "react-i18next";
 
 const PROJECT_STATUSES = [
   { value: "backlog", label: "Backlog" },
@@ -53,28 +54,26 @@ export type ProjectConfigFieldKey =
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 
 function SaveIndicator({ state }: { state: ProjectFieldSaveState }) {
+    const { t } = useTranslation();
   if (state === "saving") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Saving
-      </span>
+        {t("Saving")}</span>
     );
   }
   if (state === "saved") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400">
         <Check className="h-3 w-3" />
-        Saved
-      </span>
+        {t("Saved")}</span>
     );
   }
   if (state === "error") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-destructive">
         <AlertCircle className="h-3 w-3" />
-        Failed
-      </span>
+        {t("Failed")}</span>
     );
   }
   return null;
@@ -87,6 +86,7 @@ function FieldLabel({
   label: string;
   state: ProjectFieldSaveState;
 }) {
+    const { t } = useTranslation();
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -106,6 +106,7 @@ function PropertyRow({
   alignStart?: boolean;
   valueClassName?: string;
 }) {
+    const { t } = useTranslation();
   return (
     <div className={cn("flex gap-3 py-1.5", alignStart ? "items-start" : "items-center")}>
       <div className="shrink-0 w-20">{label}</div>
@@ -117,6 +118,7 @@ function PropertyRow({
 }
 
 function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (status: string) => void }) {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const colorClass = statusBadge[status] ?? statusBadgeDefault;
 
@@ -153,6 +155,7 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
 }
 
 export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSaveState }: ProjectPropertiesProps) {
+    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);
@@ -365,21 +368,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   return (
     <div>
       <div className="space-y-1 pb-4">
-        <PropertyRow label={<FieldLabel label="Name" state={fieldState("name")} />}>
+        <PropertyRow label={<FieldLabel label={t("Name")} state={fieldState("name")} />}>
           {onUpdate || onFieldUpdate ? (
             <DraftInput
               value={project.name}
               onCommit={(name) => commitField("name", { name })}
               immediate
               className="w-full rounded border border-border bg-transparent px-2 py-1 text-sm outline-none"
-              placeholder="Project name"
+              placeholder={t("Project name")}
             />
           ) : (
             <span className="text-sm">{project.name}</span>
           )}
         </PropertyRow>
         <PropertyRow
-          label={<FieldLabel label="Description" state={fieldState("description")} />}
+          label={<FieldLabel label={t("Description")} state={fieldState("description")} />}
           alignStart
           valueClassName="space-y-0.5"
         >
@@ -389,7 +392,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
               onSave={(description) => commitField("description", { description })}
               as="p"
               className="text-sm text-muted-foreground"
-              placeholder="Add a description..."
+              placeholder={t("Add a description...")}
               multiline
             />
           ) : (
@@ -398,7 +401,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             </p>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Status" state={fieldState("status")} />}>
+        <PropertyRow label={<FieldLabel label={t("Status")} state={fieldState("status")} />}>
           {onUpdate || onFieldUpdate ? (
             <ProjectStatusPicker
               status={project.status}
@@ -409,17 +412,17 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           )}
         </PropertyRow>
         {project.leadAgentId && (
-          <PropertyRow label="Lead">
+          <PropertyRow label={t("Lead")}>
             <span className="text-sm font-mono">{project.leadAgentId.slice(0, 8)}</span>
           </PropertyRow>
         )}
         <PropertyRow
-          label={<FieldLabel label="Goals" state={fieldState("goals")} />}
+          label={<FieldLabel label={t("Goals")} state={fieldState("goals")} />}
           alignStart
           valueClassName="space-y-2"
         >
           {linkedGoals.length === 0 ? (
-            <span className="text-sm text-muted-foreground">None</span>
+            <span className="text-sm text-muted-foreground">{t("None")}</span>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {linkedGoals.map((goal) => (
@@ -454,14 +457,12 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={availableGoals.length === 0}
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Goal
-                </Button>
+                  {t("Goal")}</Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-1" align="start">
                 {availableGoals.length === 0 ? (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    All goals linked.
-                  </div>
+                    {t("All goals linked.")}</div>
                 ) : (
                   availableGoals.map((goal) => (
                     <button
@@ -477,14 +478,14 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             </Popover>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Created" state="idle" />}>
+        <PropertyRow label={<FieldLabel label={t("Created")} state="idle" />}>
           <span className="text-sm">{formatDate(project.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Updated" state="idle" />}>
+        <PropertyRow label={<FieldLabel label={t("Updated")} state="idle" />}>
           <span className="text-sm">{formatDate(project.updatedAt)}</span>
         </PropertyRow>
         {project.targetDate && (
-          <PropertyRow label={<FieldLabel label="Target Date" state="idle" />}>
+          <PropertyRow label={<FieldLabel label={t("Target Date")} state="idle" />}>
             <span className="text-sm">{formatDate(project.targetDate)}</span>
           </PropertyRow>
         )}
@@ -495,13 +496,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       <div className="space-y-1 py-4">
         <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Workspaces</span>
+            <span>{t("Workspaces")}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground hover:text-foreground"
-                  aria-label="Workspaces help"
+                  aria-label={t("Workspaces help")}
                 >
                   ?
                 </button>
@@ -513,8 +514,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           </div>
           {workspaces.length === 0 ? (
             <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
-              No workspace configured.
-            </p>
+              {t("No workspace configured.")}</p>
           ) : (
             <div className="space-y-1">
               {workspaces.map((workspace) => (
@@ -526,7 +526,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         variant="ghost"
                         size="icon-xs"
                         onClick={() => clearLocalWorkspace(workspace)}
-                        aria-label="Delete local folder"
+                        aria-label={t("Delete local folder")}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -548,7 +548,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         variant="ghost"
                         size="icon-xs"
                         onClick={() => clearRepoWorkspace(workspace)}
-                        aria-label="Delete workspace repo"
+                        aria-label={t("Delete workspace repo")}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -613,8 +613,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 setWorkspaceError(null);
               }}
             >
-              Add workspace local folder
-            </Button>
+              {t("Add workspace local folder")}</Button>
             <Button
               variant="outline"
               size="xs"
@@ -624,8 +623,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 setWorkspaceError(null);
               }}
             >
-              Add workspace repo
-            </Button>
+              {t("Add workspace repo")}</Button>
           </div>
           {workspaceMode === "local" && (
             <div className="space-y-1.5 rounded-md border border-border p-2">
@@ -646,8 +644,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={!workspaceCwd.trim() || createWorkspace.isPending}
                   onClick={submitLocalWorkspace}
                 >
-                  Save
-                </Button>
+                  {t("Save")}</Button>
                 <Button
                   variant="ghost"
                   size="xs"
@@ -658,8 +655,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     setWorkspaceError(null);
                   }}
                 >
-                  Cancel
-                </Button>
+                  {t("Cancel")}</Button>
               </div>
             </div>
           )}
@@ -669,7 +665,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
                 value={workspaceRepoUrl}
                 onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
-                placeholder="https://github.com/org/repo"
+                placeholder={t("https://github.com/org/repo")}
               />
               <div className="flex items-center gap-2">
                 <Button
@@ -679,8 +675,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={!workspaceRepoUrl.trim() || createWorkspace.isPending}
                   onClick={submitRepoWorkspace}
                 >
-                  Save
-                </Button>
+                  {t("Save")}</Button>
                 <Button
                   variant="ghost"
                   size="xs"
@@ -691,8 +686,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     setWorkspaceError(null);
                   }}
                 >
-                  Cancel
-                </Button>
+                  {t("Cancel")}</Button>
               </div>
             </div>
           )}
@@ -700,13 +694,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             <p className="text-xs text-destructive">{workspaceError}</p>
           )}
           {createWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to save workspace.</p>
+            <p className="text-xs text-destructive">{t("Failed to save workspace.")}</p>
           )}
           {removeWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to delete workspace.</p>
+            <p className="text-xs text-destructive">{t("Failed to delete workspace.")}</p>
           )}
           {updateWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to update workspace.</p>
+            <p className="text-xs text-destructive">{t("Failed to update workspace.")}</p>
           )}
         </div>
 
@@ -716,13 +710,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
         <div className="py-1.5 space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Execution Workspaces</span>
+            <span>{t("Execution Workspaces")}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground hover:text-foreground"
-                  aria-label="Execution workspaces help"
+                  aria-label={t("Execution workspaces help")}
                 >
                   ?
                 </button>
@@ -736,7 +730,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <span>Enable isolated issue checkouts</span>
+                  <span>{t("Enable isolated issue checkouts")}</span>
                   <SaveIndicator state={fieldState("execution_workspace_enabled")} />
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -775,7 +769,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2 text-sm">
-                      <span>New issues default to isolated checkout</span>
+                      <span>{t("New issues default to isolated checkout")}</span>
                       <SaveIndicator state={fieldState("execution_workspace_default_mode")} />
                     </div>
                     <div className="text-[11px] text-muted-foreground">
@@ -818,12 +812,12 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 {executionWorkspaceAdvancedOpen && (
                   <div className="space-y-3">
                     <div className="text-xs text-muted-foreground">
-                      Host-managed implementation: <span className="text-foreground">Git worktree</span>
+                      {t("Host-managed implementation:")}<span className="text-foreground">{t("Git worktree")}</span>
                     </div>
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Base ref</span>
+                          <span>{t("Base ref")}</span>
                           <SaveIndicator state={fieldState("execution_workspace_base_ref")} />
                         </label>
                       </div>
@@ -841,13 +835,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                           })}
                         immediate
                         className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs font-mono outline-none"
-                        placeholder="origin/main"
+                        placeholder={t("origin/main")}
                       />
                     </div>
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Branch template</span>
+                          <span>{t("Branch template")}</span>
                           <SaveIndicator state={fieldState("execution_workspace_branch_template")} />
                         </label>
                       </div>
@@ -871,7 +865,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Worktree parent dir</span>
+                          <span>{t("Worktree parent dir")}</span>
                           <SaveIndicator state={fieldState("execution_workspace_worktree_parent_dir")} />
                         </label>
                       </div>
@@ -895,7 +889,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Provision command</span>
+                          <span>{t("Provision command")}</span>
                           <SaveIndicator state={fieldState("execution_workspace_provision_command")} />
                         </label>
                       </div>
@@ -913,13 +907,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                           })}
                         immediate
                         className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs font-mono outline-none"
-                        placeholder="bash ./scripts/provision-worktree.sh"
+                        placeholder={t("bash ./scripts/provision-worktree.sh")}
                       />
                     </div>
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Teardown command</span>
+                          <span>{t("Teardown command")}</span>
                           <SaveIndicator state={fieldState("execution_workspace_teardown_command")} />
                         </label>
                       </div>
@@ -937,7 +931,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                           })}
                         immediate
                         className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs font-mono outline-none"
-                        placeholder="bash ./scripts/teardown-worktree.sh"
+                        placeholder={t("bash ./scripts/teardown-worktree.sh")}
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground">

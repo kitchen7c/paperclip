@@ -12,8 +12,10 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { formatDate, projectUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Hexagon, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function Projects() {
+    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { openNewProject } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -41,8 +43,7 @@ export function Projects() {
       <div className="flex items-center justify-end">
         <Button size="sm" variant="outline" onClick={openNewProject}>
           <Plus className="h-4 w-4 mr-1" />
-          Add Project
-        </Button>
+          {t("Add Project")}</Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}

@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import type { ActivityEvent } from "@paperclipai/shared";
 import type { Agent, IssueAttachment } from "@paperclipai/shared";
+import { useTranslation } from "react-i18next";
 
 type CommentReassignment = {
   assigneeAgentId: string | null;
@@ -134,6 +135,7 @@ function formatAction(action: string, details?: Record<string, unknown> | null):
 }
 
 function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<string, Agent> }) {
+    const { t } = useTranslation();
   const id = evt.actorId;
   if (evt.actorType === "agent") {
     const agent = agentMap.get(id);
@@ -145,6 +147,7 @@ function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<st
 }
 
 export function IssueDetail() {
+    const { t } = useTranslation();
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
@@ -501,7 +504,7 @@ export function IssueDetail() {
     return () => closePanel();
   }, [issue]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">{t("Loading...")}</p>;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
   if (!issue) return null;
 
@@ -545,8 +548,7 @@ export function IssueDetail() {
       {issue.hiddenAt && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <EyeOff className="h-4 w-4 shrink-0" />
-          This issue is hidden
-        </div>
+          {t("This issue is hidden")}</div>
       )}
 
       <div className="space-y-3">
@@ -567,8 +569,7 @@ export function IssueDetail() {
                 <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400" />
               </span>
-              Live
-            </span>
+              {t("Live")}</span>
           )}
 
           {issue.projectId ? (
@@ -582,8 +583,7 @@ export function IssueDetail() {
           ) : (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground opacity-50 px-1 -mx-1 py-0.5">
               <Hexagon className="h-3 w-3 shrink-0" />
-              No project
-            </span>
+              {t("No project")}</span>
           )}
 
           {(issue.labels ?? []).length > 0 && (
@@ -612,7 +612,7 @@ export function IssueDetail() {
             size="icon-xs"
             className="ml-auto md:hidden shrink-0"
             onClick={() => setMobilePropsOpen(true)}
-            title="Properties"
+            title={t("Properties")}
           >
             <SlidersHorizontal className="h-4 w-4" />
           </Button>
@@ -626,7 +626,7 @@ export function IssueDetail() {
                 panelVisible ? "opacity-0 pointer-events-none w-0 overflow-hidden" : "opacity-100",
               )}
               onClick={() => setPanelVisible(true)}
-              title="Show properties"
+              title={t("Show properties")}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -649,8 +649,7 @@ export function IssueDetail() {
                 }}
               >
                 <EyeOff className="h-3 w-3" />
-                Hide this Issue
-              </button>
+                {t("Hide this Issue")}</button>
             </PopoverContent>
             </Popover>
           </div>
@@ -668,7 +667,7 @@ export function IssueDetail() {
           onSave={(description) => updateIssue.mutate({ description })}
           as="p"
           className="text-[15px] leading-7 text-foreground"
-          placeholder="Add a description..."
+          placeholder={t("Add a description...")}
           multiline
           mentions={mentionOptions}
           imageUploadHandler={async (file) => {
@@ -680,7 +679,7 @@ export function IssueDetail() {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Attachments</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">{t("Attachments")}</h3>
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
@@ -706,7 +705,7 @@ export function IssueDetail() {
         )}
 
         {(!attachments || attachments.length === 0) ? (
-          <p className="text-xs text-muted-foreground">No attachments yet.</p>
+          <p className="text-xs text-muted-foreground">{t("No attachments yet.")}</p>
         ) : (
           <div className="space-y-2">
             {attachments.map((attachment) => (
@@ -726,7 +725,7 @@ export function IssueDetail() {
                     className="text-muted-foreground hover:text-destructive"
                     onClick={() => deleteAttachment.mutate(attachment.id)}
                     disabled={deleteAttachment.isPending}
-                    title="Delete attachment"
+                    title={t("Delete attachment")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -756,16 +755,13 @@ export function IssueDetail() {
         <TabsList variant="line" className="w-full justify-start gap-1">
           <TabsTrigger value="comments" className="gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
-            Comments
-          </TabsTrigger>
+            {t("Comments")}</TabsTrigger>
           <TabsTrigger value="subissues" className="gap-1.5">
             <ListTree className="h-3.5 w-3.5" />
-            Sub-issues
-          </TabsTrigger>
+            {t("Sub-issues")}</TabsTrigger>
           <TabsTrigger value="activity" className="gap-1.5">
             <ActivityIcon className="h-3.5 w-3.5" />
-            Activity
-          </TabsTrigger>
+            {t("Activity")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="comments">
@@ -799,7 +795,7 @@ export function IssueDetail() {
 
         <TabsContent value="subissues">
           {childIssues.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No sub-issues.</p>
+            <p className="text-xs text-muted-foreground">{t("No sub-issues.")}</p>
           ) : (
             <div className="border border-border rounded-lg divide-y divide-border">
               {childIssues.map((child) => (
@@ -831,7 +827,7 @@ export function IssueDetail() {
 
         <TabsContent value="activity">
           {!activity || activity.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No activity yet.</p>
+            <p className="text-xs text-muted-foreground">{t("No activity yet.")}</p>
           ) : (
             <div className="space-y-1.5">
               {activity.slice(0, 20).map((evt) => (
@@ -890,7 +886,7 @@ export function IssueDetail() {
           className="rounded-lg border border-border"
         >
           <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left">
-            <span className="text-sm font-medium text-muted-foreground">Cost Summary</span>
+            <span className="text-sm font-medium text-muted-foreground">{t("Cost Summary")}</span>
             <ChevronDown
               className={cn("h-4 w-4 text-muted-foreground transition-transform", secondaryOpen.cost && "rotate-180")}
             />
@@ -898,7 +894,7 @@ export function IssueDetail() {
           <CollapsibleContent>
             <div className="border-t border-border px-3 py-2">
               {!issueCostSummary.hasCost && !issueCostSummary.hasTokens ? (
-                <div className="text-xs text-muted-foreground">No cost data yet.</div>
+                <div className="text-xs text-muted-foreground">{t("No cost data yet.")}</div>
               ) : (
                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground tabular-nums">
                   {issueCostSummary.hasCost && (
@@ -908,7 +904,7 @@ export function IssueDetail() {
                   )}
                   {issueCostSummary.hasTokens && (
                     <span>
-                      Tokens {formatTokens(issueCostSummary.totalTokens)}
+                      {t("Tokens")}{formatTokens(issueCostSummary.totalTokens)}
                       {issueCostSummary.cached > 0
                         ? ` (in ${formatTokens(issueCostSummary.input)}, out ${formatTokens(issueCostSummary.output)}, cached ${formatTokens(issueCostSummary.cached)})`
                         : ` (in ${formatTokens(issueCostSummary.input)}, out ${formatTokens(issueCostSummary.output)})`}
@@ -925,7 +921,7 @@ export function IssueDetail() {
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
         <SheetContent side="bottom" className="max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
           <SheetHeader>
-            <SheetTitle className="text-sm">Properties</SheetTitle>
+            <SheetTitle className="text-sm">{t("Properties")}</SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 overflow-y-auto">
             <div className="px-4 pb-4">

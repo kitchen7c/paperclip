@@ -49,6 +49,7 @@ import {
   saveLastInboxTab,
 } from "../lib/inbox";
 import { useDismissedInboxItems } from "../hooks/useInboxBadge";
+import { useTranslation } from "react-i18next";
 
 type InboxCategoryFilter =
   | "everything"
@@ -108,6 +109,7 @@ function FailedRunCard({
   issueLinkState: unknown;
   onDismiss: () => void;
 }) {
+    const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const issueId = readIssueIdFromRun(run);
@@ -149,7 +151,7 @@ function FailedRunCard({
         type="button"
         onClick={onDismiss}
         className="absolute right-2 top-2 z-10 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-        aria-label="Dismiss"
+        aria-label={t("Dismiss")}
       >
         <X className="h-4 w-4" />
       </button>
@@ -180,7 +182,7 @@ function FailedRunCard({
               {linkedAgentName ? (
                 <Identity name={linkedAgentName} size="sm" />
               ) : (
-                <span className="text-sm font-medium">Agent {run.agentId.slice(0, 8)}</span>
+                <span className="text-sm font-medium">{t("Agent")}{run.agentId.slice(0, 8)}</span>
               )}
               <StatusBadge status={run.status} />
             </div>
@@ -208,8 +210,7 @@ function FailedRunCard({
               asChild
             >
               <Link to={`/agents/${run.agentId}/runs/${run.id}`}>
-                Open run
-                <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
+                {t("Open run")}<ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
               </Link>
             </Button>
           </div>
@@ -234,6 +235,7 @@ function FailedRunCard({
 }
 
 export function Inbox() {
+    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
@@ -592,15 +594,15 @@ export function Inbox() {
               onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
             >
               <SelectTrigger className="h-8 w-[170px] text-xs">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder={t("Category")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="everything">All categories</SelectItem>
-                <SelectItem value="issues_i_touched">My recent issues</SelectItem>
-                <SelectItem value="join_requests">Join requests</SelectItem>
-                <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
-                <SelectItem value="alerts">Alerts</SelectItem>
+                <SelectItem value="everything">{t("All categories")}</SelectItem>
+                <SelectItem value="issues_i_touched">{t("My recent issues")}</SelectItem>
+                <SelectItem value="join_requests">{t("Join requests")}</SelectItem>
+                <SelectItem value="approvals">{t("Approvals")}</SelectItem>
+                <SelectItem value="failed_runs">{t("Failed runs")}</SelectItem>
+                <SelectItem value="alerts">{t("Alerts")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -610,12 +612,12 @@ export function Inbox() {
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
-                  <SelectValue placeholder="Approval status" />
+                  <SelectValue placeholder={t("Approval status")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All approval statuses</SelectItem>
-                  <SelectItem value="actionable">Needs action</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="all">{t("All approval statuses")}</SelectItem>
+                  <SelectItem value="actionable">{t("Needs action")}</SelectItem>
+                  <SelectItem value="resolved">{t("Resolved")}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -676,8 +678,7 @@ export function Inbox() {
           {showSeparatorBefore("join_requests") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Join Requests
-            </h3>
+              {t("Join Requests")}</h3>
             <div className="grid gap-3">
               {joinRequests.map((joinRequest) => (
                 <div key={joinRequest.id} className="rounded-xl border border-border bg-card p-4">
@@ -707,15 +708,13 @@ export function Inbox() {
                         disabled={approveJoinMutation.isPending || rejectJoinMutation.isPending}
                         onClick={() => rejectJoinMutation.mutate(joinRequest)}
                       >
-                        Reject
-                      </Button>
+                        {t("Reject")}</Button>
                       <Button
                         size="sm"
                         disabled={approveJoinMutation.isPending || rejectJoinMutation.isPending}
                         onClick={() => approveJoinMutation.mutate(joinRequest)}
                       >
-                        Approve
-                      </Button>
+                        {t("Approve")}</Button>
                     </div>
                   </div>
                 </div>
@@ -730,8 +729,7 @@ export function Inbox() {
           {showSeparatorBefore("failed_runs") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Failed Runs
-            </h3>
+              {t("Failed Runs")}</h3>
             <div className="grid gap-3">
               {failedRuns.map((run) => (
                 <FailedRunCard
@@ -753,8 +751,7 @@ export function Inbox() {
           {showSeparatorBefore("alerts") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Alerts
-            </h3>
+              {t("Alerts")}</h3>
             <div className="divide-y divide-border border border-border">
               {showAggregateAgentError && (
                 <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
@@ -772,7 +769,7 @@ export function Inbox() {
                     type="button"
                     onClick={() => dismiss("alert:agent-errors")}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
-                    aria-label="Dismiss"
+                    aria-label={t("Dismiss")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -795,7 +792,7 @@ export function Inbox() {
                     type="button"
                     onClick={() => dismiss("alert:budget")}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
-                    aria-label="Dismiss"
+                    aria-label={t("Dismiss")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -837,8 +834,7 @@ export function Inbox() {
                               <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
                             </span>
                             <span className="hidden text-[11px] font-medium text-blue-600 dark:text-blue-400 sm:inline">
-                              Live
-                            </span>
+                              {t("Live")}</span>
                           </span>
                         )}
                       </>

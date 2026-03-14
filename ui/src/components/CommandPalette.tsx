@@ -31,8 +31,10 @@ import {
 } from "lucide-react";
 import { Identity } from "./Identity";
 import { agentUrl, projectUrl } from "../lib/utils";
+import { useTranslation } from "react-i18next";
 
 export function CommandPalette() {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
@@ -102,12 +104,12 @@ export function CommandPalette() {
         if (v && isMobile) setSidebarOpen(false);
       }}>
       <CommandInput
-        placeholder="Search issues, agents, projects..."
+        placeholder={t("Search issues, agents, projects...")}
         value={query}
         onValueChange={setQuery}
       />
       <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
+        <CommandEmpty>{t("No results found.")}</CommandEmpty>
 
         <CommandGroup heading="Actions">
           <CommandItem
@@ -117,8 +119,7 @@ export function CommandPalette() {
             }}
           >
             <SquarePen className="mr-2 h-4 w-4" />
-            Create new issue
-            <span className="ml-auto text-xs text-muted-foreground">C</span>
+            {t("Create new issue")}<span className="ml-auto text-xs text-muted-foreground">C</span>
           </CommandItem>
           <CommandItem
             onSelect={() => {
@@ -127,12 +128,10 @@ export function CommandPalette() {
             }}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Create new agent
-          </CommandItem>
+            {t("Create new agent")}</CommandItem>
           <CommandItem onSelect={() => go("/projects")}>
             <Plus className="mr-2 h-4 w-4" />
-            Create new project
-          </CommandItem>
+            {t("Create new project")}</CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
@@ -140,36 +139,28 @@ export function CommandPalette() {
         <CommandGroup heading="Pages">
           <CommandItem onSelect={() => go("/dashboard")}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-          </CommandItem>
+            {t("Dashboard")}</CommandItem>
           <CommandItem onSelect={() => go("/inbox")}>
             <Inbox className="mr-2 h-4 w-4" />
-            Inbox
-          </CommandItem>
+            {t("Inbox")}</CommandItem>
           <CommandItem onSelect={() => go("/issues")}>
             <CircleDot className="mr-2 h-4 w-4" />
-            Issues
-          </CommandItem>
+            {t("Issues")}</CommandItem>
           <CommandItem onSelect={() => go("/projects")}>
             <Hexagon className="mr-2 h-4 w-4" />
-            Projects
-          </CommandItem>
+            {t("Projects")}</CommandItem>
           <CommandItem onSelect={() => go("/goals")}>
             <Target className="mr-2 h-4 w-4" />
-            Goals
-          </CommandItem>
+            {t("Goals")}</CommandItem>
           <CommandItem onSelect={() => go("/agents")}>
             <Bot className="mr-2 h-4 w-4" />
-            Agents
-          </CommandItem>
+            {t("Agents")}</CommandItem>
           <CommandItem onSelect={() => go("/costs")}>
             <DollarSign className="mr-2 h-4 w-4" />
-            Costs
-          </CommandItem>
+            {t("Costs")}</CommandItem>
           <CommandItem onSelect={() => go("/activity")}>
             <History className="mr-2 h-4 w-4" />
-            Activity
-          </CommandItem>
+            {t("Activity")}</CommandItem>
         </CommandGroup>
 
         {visibleIssues.length > 0 && (

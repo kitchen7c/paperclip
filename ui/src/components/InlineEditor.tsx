@@ -3,6 +3,7 @@ import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { MarkdownBody } from "./MarkdownBody";
 import { MarkdownEditor, type MentionOption } from "./MarkdownEditor";
+import { useTranslation } from "react-i18next";
 
 interface InlineEditorProps {
   value: string;
@@ -28,6 +29,7 @@ export function InlineEditor({
   imageUploadHandler,
   mentions,
 }: InlineEditorProps) {
+    const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -95,11 +97,9 @@ export function InlineEditor({
                 setEditing(false);
               }}
             >
-              Cancel
-            </Button>
+              {t("Cancel")}</Button>
             <Button size="sm" onClick={commit}>
-              Save
-            </Button>
+              {t("Save")}</Button>
           </div>
         </div>
       );

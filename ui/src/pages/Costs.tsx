@@ -12,6 +12,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type DatePreset = "mtd" | "7d" | "30d" | "ytd" | "all" | "custom";
 
@@ -52,6 +53,7 @@ function computeRange(preset: DatePreset): { from: string; to: string } {
 }
 
 export function Costs() {
+    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
 
@@ -118,7 +120,7 @@ export function Costs() {
               onChange={(e) => setCustomFrom(e.target.value)}
               className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
             />
-            <span className="text-sm text-muted-foreground">to</span>
+            <span className="text-sm text-muted-foreground">{t("to")}</span>
             <input
               type="date"
               value={customTo}
@@ -173,9 +175,9 @@ export function Costs() {
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Agent</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("By Agent")}</h3>
                 {data.byAgent.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No cost events yet.</p>
+                  <p className="text-sm text-muted-foreground">{t("No cost events yet.")}</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byAgent.map((row) => (
@@ -195,7 +197,7 @@ export function Costs() {
                         <div className="text-right shrink-0 ml-2 tabular-nums">
                           <span className="font-medium block">{formatCents(row.costCents)}</span>
                           <span className="text-xs text-muted-foreground block">
-                            in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
+                            {t("in")}{formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
                           </span>
                           {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
                             <span className="text-xs text-muted-foreground block">
@@ -216,9 +218,9 @@ export function Costs() {
 
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Project</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("By Project")}</h3>
                 {data.byProject.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No project-attributed run costs yet.</p>
+                  <p className="text-sm text-muted-foreground">{t("No project-attributed run costs yet.")}</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byProject.map((row) => (

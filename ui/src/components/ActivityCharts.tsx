@@ -1,4 +1,5 @@
 import type { HeartbeatRun } from "@paperclipai/shared";
+import { useTranslation } from "react-i18next";
 
 /* ---- Utilities ---- */
 
@@ -18,6 +19,7 @@ function formatDayLabel(dateStr: string): string {
 /* ---- Sub-components ---- */
 
 function DateLabels({ days }: { days: string[] }) {
+    const { t } = useTranslation();
   return (
     <div className="flex gap-[3px] mt-1.5">
       {days.map((day, i) => (
@@ -32,6 +34,7 @@ function DateLabels({ days }: { days: string[] }) {
 }
 
 function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
+    const { t } = useTranslation();
   return (
     <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 mt-2">
       {items.map(item => (
@@ -45,6 +48,7 @@ function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
 }
 
 export function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+    const { t } = useTranslation();
   return (
     <div className="border border-border rounded-lg p-4 space-y-3">
       <div>
@@ -59,6 +63,7 @@ export function ChartCard({ title, subtitle, children }: { title: string; subtit
 /* ---- Chart Components ---- */
 
 export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
+    const { t } = useTranslation();
   const days = getLast14Days();
 
   const grouped = new Map<string, { succeeded: number; failed: number; other: number }>();
@@ -75,7 +80,7 @@ export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => v.succeeded + v.failed + v.other), 1);
   const hasData = Array.from(grouped.values()).some(v => v.succeeded + v.failed + v.other > 0);
 
-  if (!hasData) return <p className="text-xs text-muted-foreground">No runs yet</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("No runs yet")}</p>;
 
   return (
     <div>
@@ -114,6 +119,7 @@ const priorityColors: Record<string, string> = {
 const priorityOrder = ["critical", "high", "medium", "low"] as const;
 
 export function PriorityChart({ issues }: { issues: { priority: string; createdAt: Date }[] }) {
+    const { t } = useTranslation();
   const days = getLast14Days();
   const grouped = new Map<string, Record<string, number>>();
   for (const day of days) grouped.set(day, { critical: 0, high: 0, medium: 0, low: 0 });
@@ -127,7 +133,7 @@ export function PriorityChart({ issues }: { issues: { priority: string; createdA
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => Object.values(v).reduce((a, b) => a + b, 0)), 1);
   const hasData = Array.from(grouped.values()).some(v => Object.values(v).reduce((a, b) => a + b, 0) > 0);
 
-  if (!hasData) return <p className="text-xs text-muted-foreground">No issues</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("No issues")}</p>;
 
   return (
     <div>
@@ -178,6 +184,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export function IssueStatusChart({ issues }: { issues: { status: string; createdAt: Date }[] }) {
+    const { t } = useTranslation();
   const days = getLast14Days();
   const allStatuses = new Set<string>();
   const grouped = new Map<string, Record<string, number>>();
@@ -194,7 +201,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => Object.values(v).reduce((a, b) => a + b, 0)), 1);
   const hasData = allStatuses.size > 0;
 
-  if (!hasData) return <p className="text-xs text-muted-foreground">No issues</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("No issues")}</p>;
 
   return (
     <div>
@@ -225,6 +232,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
 }
 
 export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
+    const { t } = useTranslation();
   const days = getLast14Days();
   const grouped = new Map<string, { succeeded: number; total: number }>();
   for (const day of days) grouped.set(day, { succeeded: 0, total: 0 });
@@ -237,7 +245,7 @@ export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
   }
 
   const hasData = Array.from(grouped.values()).some(v => v.total > 0);
-  if (!hasData) return <p className="text-xs text-muted-foreground">No runs yet</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("No runs yet")}</p>;
 
   return (
     <div>
