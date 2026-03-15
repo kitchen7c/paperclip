@@ -1,5 +1,5 @@
 import { Client } from "ssh2";
-import { runChildProcess, parseObject } from "@paperclipai/adapter-utils/server-utils";
+import { runChildProcess, parseObject, buildPaperclipEnv } from "@paperclipai/adapter-utils/server-utils";
 import type { 
   AdapterExecutionResult, 
   AdapterExecutionContext, 
@@ -45,7 +45,7 @@ function buildRsyncCommand(
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, onLog, config, context, runtime } = ctx;
+  const { runId, agent, authToken, onLog, config, context, runtime } = ctx;
 
   const sshHost = asString(config.sshHost, "127.0.0.1");
   const sshPort = typeof config.sshPort === "number" ? config.sshPort : 22;
@@ -58,6 +58,23 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const localWorkspaceCwd = asString(workspaceContext.cwd, process.cwd());
+
+  // Build the environment dictionary to send over SSH
+  const envConfig = parseObject(config.env);
+  const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
+  env.PAPERCLIP_RUN_ID = runId;
+  const wakeTaskId = asString(context.taskId, asString(context.issueId, ""));
+  if (wakeTaskId) env.PAPERCLIP_TASK_ID = wakeTaskId;
+  const wakeReason = asString(context.wakeReason, "");
+  if (wakeReason) env.PAPERCLIP_WAKE_REASON = wakeReason;
+  env.PAPERCLIP_WORKSPACE_CWD = remoteWorkspaceCwd;
+  
+  for (const [key, value] of Object.entries(envConfig)) {
+    if (typeof value === "string") env[key] = value;
+  }
+  if (authToken && typeof env.PAPERCLIP_API_KEY !== "string") {
+    env.PAPERCLIP_API_KEY = authToken;
+  }
 
   // E.g. prompt is the next user input
   const prompt = asString(context.paperclipRunPrompt, "Respond with hello");
@@ -121,14 +138,24 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
       // Add prompt
       if (cliType === "gemini") {
-         command += ` "${prompt.replace(/"/g, '\\"')}"`;
+         // Prevent injection by writing prompt to stdin instead of argument, using cat - if supported
+         // Or write to a temp file and source it.
+         // For gemini CLI, it currently only takes prompt as positional.
+         // As a hotfix, base64 encode the prompt and decode it on the remote.
+         command += ` "$(echo '${Buffer.from(prompt).toString("base64")}' | base64 -d)"`;
       }
 
-      conn.exec(command, (err, stream) => {
+      conn.exec(command, { env }, (err, stream) => {
         if (err) {
           conn.end();
           resolve({ exitCode: 1, signal: null, timedOut: false, errorMessage: err.message });
           return;
+        }
+
+        // For Codex, send the prompt over stdin.
+        if (cliType === "codex") {
+           stream.write(prompt);
+           stream.end();
         }
 
         stream.on("close", (code: number, signal: string) => {
