@@ -56,7 +56,8 @@
     "pino-http": "^10.4.0",
     "pino-pretty": "^13.1.3",
     "ws": "^8.19.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "@paperclipai/adapter-remote-cli": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

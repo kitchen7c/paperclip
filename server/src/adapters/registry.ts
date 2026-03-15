@@ -127,6 +127,26 @@ const piLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: piAgentConfigurationDoc,
 };
 
+import {
+  execute as remoteCliExecute,
+  testEnvironment as remoteCliTestEnvironment,
+  sessionCodec as remoteCliSessionCodec,
+} from "@paperclipai/adapter-remote-cli/server";
+import {
+  agentConfigurationDoc as remoteCliAgentConfigurationDoc,
+  models as remoteCliModels,
+} from "@paperclipai/adapter-remote-cli";
+
+const remoteCliAdapter: ServerAdapterModule = {
+  type: "remote_cli",
+  execute: remoteCliExecute,
+  testEnvironment: remoteCliTestEnvironment,
+  sessionCodec: remoteCliSessionCodec,
+  models: remoteCliModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: remoteCliAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
@@ -135,6 +155,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     piLocalAdapter,
     cursorLocalAdapter,
     geminiLocalAdapter,
+    remoteCliAdapter,
     openclawGatewayAdapter,
     processAdapter,
     httpAdapter,
