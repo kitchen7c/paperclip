@@ -169,6 +169,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     const { t } = useTranslation();
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
+  const editAgent = !isCreate ? props.agent : null;
   const cards = props.sectionLayout === "cards";
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
@@ -177,6 +178,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
     queryFn: () => secretsApi.list(selectedCompanyId!),
     enabled: Boolean(selectedCompanyId),
+  });
+  const { data: companyAgents = [] } = useQuery({
+    queryKey: selectedCompanyId ? queryKeys.agents.list(selectedCompanyId) : ["agents", "none"],
+    queryFn: () => agentsApi.list(selectedCompanyId!),
+    enabled: Boolean(selectedCompanyId) && !isCreate,
   });
 
   const createSecret = useMutation({
@@ -415,6 +421,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     [adapterType, effectiveRuntimeConfig],
   );
   const showSessionCompactionCard = Boolean(sessionCompaction.adapterSessionManagement);
+  const availableManagers = useMemo(() => {
+    if (!editAgent) return [];
+    return companyAgents
+      .filter((candidate) =>
+        candidate.id !== editAgent.id &&
+        (candidate.status !== "terminated" || candidate.id === editAgent.reportsTo),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [companyAgents, editAgent]);
 
   return (
     <div className={cn("relative", cards && "space-y-6")}>
@@ -459,6 +474,21 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 className={inputClass}
                 placeholder={t("e.g. VP of Engineering")}
               />
+            </Field>
+            <Field label={t("Reports To")} hint={help.reportsTo}>
+              <select
+                name="reportsTo"
+                value={eff("identity", "reportsTo", props.agent.reportsTo ?? "") ?? ""}
+                onChange={(event) => mark("identity", "reportsTo", event.target.value || null)}
+                className={cn(inputClass, "font-sans")}
+              >
+                <option value="">{t("No manager")}</option>
+                {availableManagers.map((manager) => (
+                  <option key={manager.id} value={manager.id}>
+                    {manager.name} · {manager.title ?? manager.role}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label={t("Capabilities")} hint={help.capabilities}>
               <MarkdownEditor
