@@ -27,11 +27,7 @@ import {
   updateUserCompanyAccessSchema,
   PERMISSION_KEYS
 } from "@paperclipai/shared";
-import type {
-  AgentAdapterType,
-  DeploymentExposure,
-  DeploymentMode,
-} from "@paperclipai/shared";
+import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 import {
   forbidden,
   conflict,
@@ -167,43 +163,14 @@ interface AvailableSkill {
   isPaperclipManaged: boolean;
 }
 
-function resolveCodexSkillsDir(homeDir: string, env: NodeJS.ProcessEnv = process.env): string {
-  const codexHome =
-    typeof env.CODEX_HOME === "string" && env.CODEX_HOME.trim().length > 0
-      ? path.resolve(env.CODEX_HOME.trim())
-      : path.join(homeDir, ".codex");
-  return path.join(codexHome, "skills");
+function resolveAgentWorkingSkillsDir(agent: { adapterConfig: Record<string, unknown> | null | undefined }): string | null {
+  const cwd = agent.adapterConfig?.cwd;
+  if (typeof cwd !== "string" || cwd.trim().length === 0) return null;
+  return path.join(path.resolve(cwd.trim()), "skills");
 }
 
-function resolveAvailableSkillsDir(
-  adapterType: AgentAdapterType | string | null | undefined,
-  env: NodeJS.ProcessEnv = process.env,
-): string | null {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  const normalizedAdapterType = typeof adapterType === "string" ? adapterType.trim() : "";
-  if (!homeDir) return null;
-
-  switch (normalizedAdapterType) {
-    case "":
-    case "claude_local":
-    case "opencode_local":
-      return path.join(homeDir, ".claude", "skills");
-    case "codex_local":
-      return resolveCodexSkillsDir(homeDir, env);
-    case "cursor":
-      return path.join(homeDir, ".cursor", "skills");
-    case "gemini_local":
-      return path.join(homeDir, ".gemini", "skills");
-    case "pi_local":
-      return path.join(homeDir, ".pi", "agent", "skills");
-    default:
-      return null;
-  }
-}
-
-/** Discover available local skills from the adapter-specific skills directory. */
-function listAvailableSkills(adapterType?: AgentAdapterType | string | null): AvailableSkill[] {
-  const skillsDir = resolveAvailableSkillsDir(adapterType);
+/** Discover available local skills from a specific skills directory. */
+function listAvailableSkills(skillsDir: string | null): AvailableSkill[] {
   const paperclipSkillsDir = resolvePaperclipSkillsDir();
 
   // Build set of Paperclip-managed skill names
@@ -1734,10 +1701,19 @@ export function accessRoutes(
     return { token, created, normalizedAgentMessage };
   }
 
-  router.get("/skills/available", (req, res) => {
-    const adapterType =
-      typeof req.query.adapterType === "string" ? req.query.adapterType : undefined;
-    res.json({ skills: listAvailableSkills(adapterType) });
+  router.get("/skills/available", async (req, res) => {
+    const agentId = typeof req.query.agentId === "string" ? req.query.agentId.trim() : "";
+    if (!agentId) {
+      res.json({ skills: [] });
+      return;
+    }
+
+    const agent = await agents.getById(agentId);
+    if (!agent) throw notFound("Agent not found");
+    assertCompanyAccess(req, agent.companyId);
+
+    const skillsDir = resolveAgentWorkingSkillsDir(agent);
+    res.json({ skills: listAvailableSkills(skillsDir) });
   });
 
   router.get("/skills/index", (_req, res) => {

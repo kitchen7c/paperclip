@@ -105,7 +105,7 @@ export const queryKeys = {
   runIssues: (runId: string) => ["run-issues", runId] as const,
   org: (companyId: string) => ["org", companyId] as const,
   skills: {
-    available: (adapterType?: string) => ["skills", "available", adapterType ?? "__default__"] as const,
+    available: (agentId?: string) => ["skills", "available", agentId ?? "__default__"] as const,
   },
   plugins: {
     all: ["plugins"] as const,

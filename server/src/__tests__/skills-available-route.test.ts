@@ -99,29 +99,27 @@ describe("GET /skills/available", () => {
     await fs.rm(tempHome, { recursive: true, force: true });
   });
 
-  it("uses the adapter-specific local skills directory", async () => {
-    await writeSkill(tempHome, ".claude/skills", "claude-skill", "Claude skill");
-    await writeSkill(tempHome, ".cursor/skills", "cursor-skill", "Cursor skill");
-    await writeSkill(tempHome, ".gemini/skills", "gemini-skill", "Gemini skill");
-    await writeSkill(tempHome, ".pi/agent/skills", "pi-skill", "Pi skill");
+  it("only lists project-level skills from the agent working directory", async () => {
+    await writeSkill(tempHome, ".claude/skills", "global-skill", "Global skill");
 
-    const codexHome = path.join(tempHome, "custom-codex-home");
-    process.env.CODEX_HOME = codexHome;
-    await writeSkill(codexHome, "skills", "codex-skill", "Codex skill");
+    const projectRoot = path.join(tempHome, "project-alpha");
+    await writeSkill(projectRoot, "skills", "project-skill", "Project skill");
+
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-1",
+      companyId: "company-1",
+      adapterType: "claude_local",
+      adapterConfig: {
+        cwd: projectRoot,
+      },
+    });
 
     const app = createApp();
 
-    const claudeRes = await request(app).get("/api/skills/available").query({ adapterType: "claude_local" });
-    const cursorRes = await request(app).get("/api/skills/available").query({ adapterType: "cursor" });
-    const geminiRes = await request(app).get("/api/skills/available").query({ adapterType: "gemini_local" });
-    const piRes = await request(app).get("/api/skills/available").query({ adapterType: "pi_local" });
-    const codexRes = await request(app).get("/api/skills/available").query({ adapterType: "codex_local" });
+    const res = await request(app).get("/api/skills/available").query({ agentId: "agent-1" });
 
-    expect(claudeRes.status).toBe(200);
-    expect(claudeRes.body.skills.map((skill: { name: string }) => skill.name)).toEqual(["claude-skill"]);
-    expect(cursorRes.body.skills.map((skill: { name: string }) => skill.name)).toEqual(["cursor-skill"]);
-    expect(geminiRes.body.skills.map((skill: { name: string }) => skill.name)).toEqual(["gemini-skill"]);
-    expect(piRes.body.skills.map((skill: { name: string }) => skill.name)).toEqual(["pi-skill"]);
-    expect(codexRes.body.skills.map((skill: { name: string }) => skill.name)).toEqual(["codex-skill"]);
+    expect(res.status).toBe(200);
+    expect(res.body.skills.map((skill: { name: string }) => skill.name)).toEqual(["project-skill"]);
+    expect(res.body.skills[0]?.description).toBe("Project skill");
   });
 });

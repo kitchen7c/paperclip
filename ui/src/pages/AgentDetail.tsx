@@ -1433,8 +1433,8 @@ function SkillsTab({ agent }: { agent: Agent }) {
       ? agent.adapterConfig.instructionsFilePath
       : null;
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.skills.available(agent.adapterType),
-    queryFn: () => agentsApi.availableSkills(agent.adapterType),
+    queryKey: queryKeys.skills.available(agent.id),
+    queryFn: () => agentsApi.availableSkills(agent.id),
   });
   const skills = data?.skills ?? [];
 
