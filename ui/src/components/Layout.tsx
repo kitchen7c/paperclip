@@ -24,11 +24,26 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useCompanyPageMemory } from "../hooks/useCompanyPageMemory";
 import { healthApi } from "../api/health";
 import { shouldSyncCompanySelectionFromRoute } from "../lib/company-selection";
+import {
+  DEFAULT_INSTANCE_SETTINGS_PATH,
+  normalizeRememberedInstanceSettingsPath,
+} from "../lib/instance-settings";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+
+const INSTANCE_SETTINGS_MEMORY_KEY = "paperclip.lastInstanceSettingsPath";
+
+function readRememberedInstanceSettingsPath(): string {
+  if (typeof window === "undefined") return DEFAULT_INSTANCE_SETTINGS_PATH;
+  try {
+    return normalizeRememberedInstanceSettingsPath(window.localStorage.getItem(INSTANCE_SETTINGS_MEMORY_KEY));
+  } catch {
+    return DEFAULT_INSTANCE_SETTINGS_PATH;
+  }
+}
 
 export function Layout() {
     const { t } = useTranslation();
@@ -51,6 +66,7 @@ export function Layout() {
   const onboardingTriggered = useRef(false);
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
+  const [instanceSettingsTarget, setInstanceSettingsTarget] = useState<string>(() => readRememberedInstanceSettingsPath());
   const nextTheme = theme === "dark" ? "light" : "dark";
   const matchedCompany = useMemo(() => {
     if (!companyPrefix) return null;
@@ -222,6 +238,21 @@ export function Layout() {
     };
   }, [isMobile]);
 
+  useEffect(() => {
+    if (!location.pathname.startsWith("/instance/settings/")) return;
+
+    const nextPath = normalizeRememberedInstanceSettingsPath(
+      `${location.pathname}${location.search}${location.hash}`,
+    );
+    setInstanceSettingsTarget(nextPath);
+
+    try {
+      window.localStorage.setItem(INSTANCE_SETTINGS_MEMORY_KEY, nextPath);
+    } catch {
+      // Ignore storage failures in restricted environments.
+    }
+  }, [location.hash, location.pathname, location.search]);
+
   return (
     <div
       className={cn(
@@ -236,7 +267,6 @@ export function Layout() {
         {t("Skip to Main Content")}</a>
       <WorktreeBanner />
       <div className={cn("min-h-0 flex-1", isMobile ? "w-full" : "flex overflow-hidden")}>
-        {/* Mobile backdrop */}
         {isMobile && sidebarOpen && (
           <button
             type="button"
@@ -246,7 +276,6 @@ export function Layout() {
           />
         )}
 
-        {/* Combined sidebar area: company rail + inner sidebar + docs bar */}
         {isMobile ? (
           <div
             className={cn(
@@ -269,9 +298,12 @@ export function Layout() {
                   <BookOpen className="h-4 w-4 shrink-0" />
                   <span className="truncate">{t("Documentation")}</span>
                 </a>
+                {health?.version && (
+                  <span className="px-2 text-xs text-muted-foreground shrink-0">v{health.version}</span>
+                )}
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
-                    to="/instance/settings"
+                    to={instanceSettingsTarget}
                     aria-label={t("Instance settings")}
                     title={t("Instance settings")}
                     onClick={() => {
@@ -319,9 +351,12 @@ export function Layout() {
                   <BookOpen className="h-4 w-4 shrink-0" />
                   <span className="truncate">{t("Documentation")}</span>
                 </a>
+                {health?.version && (
+                  <span className="px-2 text-xs text-muted-foreground shrink-0">v{health.version}</span>
+                )}
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
-                    to="/instance/settings"
+                    to={instanceSettingsTarget}
                     aria-label={t("Instance settings")}
                     title={t("Instance settings")}
                     onClick={() => {
@@ -347,7 +382,6 @@ export function Layout() {
           </div>
         )}
 
-        {/* Main content */}
         <div className={cn("flex min-w-0 flex-col", isMobile ? "w-full" : "h-full flex-1")}>
           <div
             className={cn(

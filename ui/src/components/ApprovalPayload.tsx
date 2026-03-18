@@ -1,20 +1,22 @@
-import { UserPlus, Lightbulb, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
+import { formatCents } from "../lib/utils";
 
 export const typeLabel: Record<string, string> = {
   hire_agent: "Hire Agent",
   approve_ceo_strategy: "CEO Strategy",
+  budget_override_required: "Budget Override",
 };
 
 export const typeIcon: Record<string, typeof UserPlus> = {
   hire_agent: UserPlus,
   approve_ceo_strategy: Lightbulb,
+  budget_override_required: ShieldAlert,
 };
 
 export const defaultTypeIcon = ShieldCheck;
 
 function PayloadField({ label, value }: { label: string; value: unknown }) {
-    const { t } = useTranslation();
   if (!value) return null;
   return (
     <div className="flex items-center gap-2">
@@ -73,8 +75,28 @@ export function CeoStrategyPayload({ payload }: { payload: Record<string, unknow
   );
 }
 
+export function BudgetOverridePayload({ payload }: { payload: Record<string, unknown> }) {
+  const budgetAmount = typeof payload.budgetAmount === "number" ? payload.budgetAmount : null;
+  const observedAmount = typeof payload.observedAmount === "number" ? payload.observedAmount : null;
+  return (
+    <div className="mt-3 space-y-1.5 text-sm">
+      <PayloadField label="Scope" value={payload.scopeName ?? payload.scopeType} />
+      <PayloadField label="Window" value={payload.windowKind} />
+      <PayloadField label="Metric" value={payload.metric} />
+      {(budgetAmount !== null || observedAmount !== null) ? (
+        <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Limit {budgetAmount !== null ? formatCents(budgetAmount) : "—"} · Observed {observedAmount !== null ? formatCents(observedAmount) : "—"}
+        </div>
+      ) : null}
+      {!!payload.guidance && (
+        <p className="text-muted-foreground">{String(payload.guidance)}</p>
+      )}
+    </div>
+  );
+}
+
 export function ApprovalPayloadRenderer({ type, payload }: { type: string; payload: Record<string, unknown> }) {
-    const { t } = useTranslation();
   if (type === "hire_agent") return <HireAgentPayload payload={payload} />;
+  if (type === "budget_override_required") return <BudgetOverridePayload payload={payload} />;
   return <CeoStrategyPayload payload={payload} />;
 }

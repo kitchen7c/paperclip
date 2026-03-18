@@ -35,6 +35,9 @@ export function ApprovalCard({
     const { t } = useTranslation();
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const label = typeLabel[approval.type] ?? approval.type;
+  const showResolutionButtons =
+    approval.type !== "budget_override_required" &&
+    (approval.status === "pending" || approval.status === "revision_requested");
 
   return (
     <div className="border border-border rounded-lg p-4 space-y-0">
@@ -69,7 +72,7 @@ export function ApprovalCard({
       )}
 
       {/* Actions */}
-      {(approval.status === "pending" || approval.status === "revision_requested") && (
+      {showResolutionButtons && (
         <div className="flex gap-2 mt-4 pt-3 border-t border-border">
           <Button
             size="sm"

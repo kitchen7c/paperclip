@@ -43,7 +43,6 @@ const projectStatuses = [
 ];
 
 type WorkspaceSetup = "none" | "local" | "repo" | "both";
-const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 
 export function NewProjectDialog() {
     const { t } = useTranslation();
@@ -144,7 +143,7 @@ export function NewProjectDialog() {
       return;
     }
     if (repoRequired && !isGitHubRepoUrl(repoUrl)) {
-      setWorkspaceError("Repo workspace must use a valid GitHub repo URL.");
+      setWorkspaceError("Repo must use a valid GitHub repo URL.");
       return;
     }
 
@@ -175,7 +174,6 @@ export function NewProjectDialog() {
       } else if (repoRequired) {
         workspacePayloads.push({
           name: deriveWorkspaceNameFromRepo(repoUrl),
-          cwd: REPO_ONLY_CWD_SENTINEL,
           repoUrl,
         });
       }
@@ -286,7 +284,7 @@ export function NewProjectDialog() {
         <div className="px-4 pb-3 space-y-3 border-t border-border">
           <div className="pt-3">
             <p className="text-sm font-medium">{t("Where will work be done on this project?")}</p>
-            <p className="text-xs text-muted-foreground">Add local folder and/or GitHub repo workspace hints.</p>
+            <p className="text-xs text-muted-foreground">{t("Add a repo and/or local folder for this project.")}</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <button
@@ -312,7 +310,8 @@ export function NewProjectDialog() {
             >
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Github className="h-4 w-4" />
-                {t("A github repo")}</div>
+                {t("A repo")}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">{t("Paste a GitHub URL.")}</p>
             </button>
             <button
@@ -325,8 +324,9 @@ export function NewProjectDialog() {
             >
               <div className="flex items-center gap-2 text-sm font-medium">
                 <GitBranch className="h-4 w-4" />
-                {t("Both")}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("Configure local + repo hints.")}</p>
+                {t("Both")}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{t("Configure both repo and local folder.")}</p>
             </button>
           </div>
 
