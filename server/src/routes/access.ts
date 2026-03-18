@@ -27,7 +27,11 @@ import {
   updateUserCompanyAccessSchema,
   PERMISSION_KEYS
 } from "@paperclipai/shared";
-import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
+import type {
+  AgentAdapterType,
+  DeploymentExposure,
+  DeploymentMode,
+} from "@paperclipai/shared";
 import {
   forbidden,
   conflict,
@@ -163,10 +167,43 @@ interface AvailableSkill {
   isPaperclipManaged: boolean;
 }
 
-/** Discover all available Claude Code skills from ~/.claude/skills/. */
-function listAvailableSkills(): AvailableSkill[] {
+function resolveCodexSkillsDir(homeDir: string, env: NodeJS.ProcessEnv = process.env): string {
+  const codexHome =
+    typeof env.CODEX_HOME === "string" && env.CODEX_HOME.trim().length > 0
+      ? path.resolve(env.CODEX_HOME.trim())
+      : path.join(homeDir, ".codex");
+  return path.join(codexHome, "skills");
+}
+
+function resolveAvailableSkillsDir(
+  adapterType: AgentAdapterType | string | null | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
   const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  const claudeSkillsDir = path.join(homeDir, ".claude", "skills");
+  const normalizedAdapterType = typeof adapterType === "string" ? adapterType.trim() : "";
+  if (!homeDir) return null;
+
+  switch (normalizedAdapterType) {
+    case "":
+    case "claude_local":
+    case "opencode_local":
+      return path.join(homeDir, ".claude", "skills");
+    case "codex_local":
+      return resolveCodexSkillsDir(homeDir, env);
+    case "cursor":
+      return path.join(homeDir, ".cursor", "skills");
+    case "gemini_local":
+      return path.join(homeDir, ".gemini", "skills");
+    case "pi_local":
+      return path.join(homeDir, ".pi", "agent", "skills");
+    default:
+      return null;
+  }
+}
+
+/** Discover available local skills from the adapter-specific skills directory. */
+function listAvailableSkills(adapterType?: AgentAdapterType | string | null): AvailableSkill[] {
+  const skillsDir = resolveAvailableSkillsDir(adapterType);
   const paperclipSkillsDir = resolvePaperclipSkillsDir();
 
   // Build set of Paperclip-managed skill names
@@ -181,12 +218,14 @@ function listAvailableSkills(): AvailableSkill[] {
 
   const skills: AvailableSkill[] = [];
 
+  if (!skillsDir) return skills;
+
   try {
-    const entries = fs.readdirSync(claudeSkillsDir, { withFileTypes: true });
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       if (entry.name.startsWith(".")) continue;
-      const skillMdPath = path.join(claudeSkillsDir, entry.name, "SKILL.md");
+      const skillMdPath = path.join(skillsDir, entry.name, "SKILL.md");
       let description = "";
       try {
         const md = fs.readFileSync(skillMdPath, "utf8");
@@ -198,7 +237,7 @@ function listAvailableSkills(): AvailableSkill[] {
         isPaperclipManaged: paperclipSkillNames.has(entry.name),
       });
     }
-  } catch { /* ~/.claude/skills/ doesn't exist */ }
+  } catch { /* selected skills directory doesn't exist */ }
 
   skills.sort((a, b) => a.name.localeCompare(b.name));
   return skills;
@@ -1695,8 +1734,10 @@ export function accessRoutes(
     return { token, created, normalizedAgentMessage };
   }
 
-  router.get("/skills/available", (_req, res) => {
-    res.json({ skills: listAvailableSkills() });
+  router.get("/skills/available", (req, res) => {
+    const adapterType =
+      typeof req.query.adapterType === "string" ? req.query.adapterType : undefined;
+    res.json({ skills: listAvailableSkills(adapterType) });
   });
 
   router.get("/skills/index", (_req, res) => {

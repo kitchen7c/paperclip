@@ -144,8 +144,12 @@ export const agentsApi = {
   ) => api.post<HeartbeatRun | { status: "skipped" }>(agentPath(id, companyId, "/wakeup"), data),
   loginWithClaude: (id: string, companyId?: string) =>
     api.post<ClaudeLoginResult>(agentPath(id, companyId, "/claude-login"), {}),
-  availableSkills: () =>
-    api.get<{ skills: AvailableSkill[] }>("/skills/available"),
+  availableSkills: (adapterType?: string) =>
+    api.get<{ skills: AvailableSkill[] }>(
+      adapterType
+        ? `/skills/available?${new URLSearchParams({ adapterType }).toString()}`
+        : "/skills/available",
+    ),
 };
 
 export interface AvailableSkill {
