@@ -8,7 +8,6 @@ import {
 } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
 import { LocalWorkspaceRuntimeFields } from "../local-workspace-runtime-fields";
-import { useTranslation } from "react-i18next";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -26,34 +25,36 @@ export function ClaudeLocalConfigFields({
   eff,
   mark,
   models,
+  hideInstructionsFile,
 }: AdapterConfigFieldsProps) {
-    const { t } = useTranslation();
   return (
     <>
-      <Field label={t("Agent instructions file")} hint={instructionsFileHint}>
-        <div className="flex items-center gap-2">
-          <DraftInput
-            value={
-              isCreate
-                ? values!.instructionsFilePath ?? ""
-                : eff(
-                    "adapterConfig",
-                    "instructionsFilePath",
-                    String(config.instructionsFilePath ?? ""),
-                  )
-            }
-            onCommit={(v) =>
-              isCreate
-                ? set!({ instructionsFilePath: v })
-                : mark("adapterConfig", "instructionsFilePath", v || undefined)
-            }
-            immediate
-            className={inputClass}
-            placeholder="/absolute/path/to/AGENTS.md"
-          />
-          <ChoosePathButton />
-        </div>
-      </Field>
+      {!hideInstructionsFile && (
+        <Field label="Agent instructions file" hint={instructionsFileHint}>
+          <div className="flex items-center gap-2">
+            <DraftInput
+              value={
+                isCreate
+                  ? values!.instructionsFilePath ?? ""
+                  : eff(
+                      "adapterConfig",
+                      "instructionsFilePath",
+                      String(config.instructionsFilePath ?? ""),
+                    )
+              }
+              onCommit={(v) =>
+                isCreate
+                  ? set!({ instructionsFilePath: v })
+                  : mark("adapterConfig", "instructionsFilePath", v || undefined)
+              }
+              immediate
+              className={inputClass}
+              placeholder="/absolute/path/to/AGENTS.md"
+            />
+            <ChoosePathButton />
+          </div>
+        </Field>
+      )}
       <LocalWorkspaceRuntimeFields
         isCreate={isCreate}
         values={values}
@@ -77,11 +78,10 @@ export function ClaudeLocalAdvancedFields({
   eff,
   mark,
 }: AdapterConfigFieldsProps) {
-    const { t } = useTranslation();
   return (
     <>
       <ToggleField
-        label={t("Enable Chrome")}
+        label="Enable Chrome"
         hint={help.chrome}
         checked={
           isCreate
@@ -95,7 +95,7 @@ export function ClaudeLocalAdvancedFields({
         }
       />
       <ToggleField
-        label={t("Skip permissions")}
+        label="Skip permissions"
         hint={help.dangerouslySkipPermissions}
         checked={
           isCreate
@@ -112,7 +112,7 @@ export function ClaudeLocalAdvancedFields({
             : mark("adapterConfig", "dangerouslySkipPermissions", v)
         }
       />
-      <Field label={t("Max turns per run")} hint={help.maxTurnsPerRun}>
+      <Field label="Max turns per run" hint={help.maxTurnsPerRun}>
         {isCreate ? (
           <input
             type="number"

@@ -6,9 +6,11 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
 import { agentsApi } from "../api/agents";
+import { authApi } from "../api/auth";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, agentRouteRef, agentUrl } from "../lib/utils";
+import { useAgentOrder } from "../hooks/useAgentOrder";
 import { AgentIcon } from "./AgentIconPicker";
 import { BudgetSidebarMarker } from "./BudgetSidebarMarker";
 import {
@@ -17,31 +19,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { Agent } from "@paperclipai/shared";
-import { useTranslation } from "react-i18next";
-
-/** BFS sort: roots first (no reportsTo), then their direct reports, etc. */
-function sortByHierarchy(agents: Agent[]): Agent[] {
-  const byId = new Map(agents.map((a) => [a.id, a]));
-  const childrenOf = new Map<string | null, Agent[]>();
-  for (const a of agents) {
-    const parent = a.reportsTo && byId.has(a.reportsTo) ? a.reportsTo : null;
-    const list = childrenOf.get(parent) ?? [];
-    list.push(a);
-    childrenOf.set(parent, list);
-  }
-  const sorted: Agent[] = [];
-  const queue = childrenOf.get(null) ?? [];
-  while (queue.length > 0) {
-    const agent = queue.shift()!;
-    sorted.push(agent);
-    const children = childrenOf.get(agent.id);
-    if (children) queue.push(...children);
-  }
-  return sorted;
-}
-
 export function SidebarAgents() {
-    const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const { selectedCompanyId } = useCompany();
   const { openNewAgent } = useDialog();
@@ -52,6 +30,10 @@ export function SidebarAgents() {
     queryKey: queryKeys.agents.list(selectedCompanyId!),
     queryFn: () => agentsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
+  });
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
   });
 
   const { data: liveRuns } = useQuery({
@@ -73,11 +55,19 @@ export function SidebarAgents() {
     const filtered = (agents ?? []).filter(
       (a: Agent) => a.status !== "terminated"
     );
-    return sortByHierarchy(filtered);
+    return filtered;
   }, [agents]);
+  const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  const { orderedAgents } = useAgentOrder({
+    agents: visibleAgents,
+    companyId: selectedCompanyId,
+    userId: currentUserId,
+  });
 
-  const agentMatch = location.pathname.match(/^\/(?:[^/]+\/)?agents\/([^/]+)/);
+  const agentMatch = location.pathname.match(/^\/(?:[^/]+\/)?agents\/([^/]+)(?:\/([^/]+))?/);
   const activeAgentId = agentMatch?.[1] ?? null;
+  const activeTab = agentMatch?.[2] ?? null;
+
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -91,7 +81,8 @@ export function SidebarAgents() {
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
-              {t("Agents")}</span>
+              Agents
+            </span>
           </CollapsibleTrigger>
           <button
             onClick={(e) => {
@@ -99,7 +90,7 @@ export function SidebarAgents() {
               openNewAgent();
             }}
             className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label={t("New agent")}
+            aria-label="New agent"
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -108,12 +99,12 @@ export function SidebarAgents() {
 
       <CollapsibleContent>
         <div className="flex flex-col gap-0.5 mt-0.5">
-          {visibleAgents.map((agent: Agent) => {
+          {orderedAgents.map((agent: Agent) => {
             const runCount = liveCountByAgent.get(agent.id) ?? 0;
             return (
               <NavLink
                 key={agent.id}
-                to={agentUrl(agent)}
+                to={activeTab ? `${agentUrl(agent)}/${activeTab}` : agentUrl(agent)}
                 onClick={() => {
                   if (isMobile) setSidebarOpen(false);
                 }}

@@ -8,6 +8,8 @@ import {
   Search,
   SquarePen,
   Network,
+  Boxes,
+  Repeat,
   Settings,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -21,11 +23,9 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Button } from "@/components/ui/button";
-import { useTranslation } from "react-i18next";
 import { PluginSlotOutlet } from "@/plugins/slots";
 
 export function Sidebar() {
-    const { t } = useTranslation();
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const inboxBadge = useInboxBadge(selectedCompanyId);
@@ -77,12 +77,12 @@ export function Sidebar() {
             className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <SquarePen className="h-4 w-4 shrink-0" />
-            <span className="truncate">{t("New Issue")}</span>
+            <span className="truncate">New Issue</span>
           </button>
-          <SidebarNavItem to="/dashboard" label={t("Dashboard")} icon={LayoutDashboard} liveCount={liveRunCount} />
+          <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
           <SidebarNavItem
             to="/inbox"
-            label={t("Inbox")}
+            label="Inbox"
             icon={Inbox}
             badge={inboxBadge.inbox}
             badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
@@ -97,20 +97,22 @@ export function Sidebar() {
           />
         </div>
 
-        <SidebarSection label={t("Work")}>
-          <SidebarNavItem to="/issues" label={t("Issues")} icon={CircleDot} />
-          <SidebarNavItem to="/goals" label={t("Goals")} icon={Target} />
+        <SidebarSection label="Work">
+          <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
+          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} textBadge="Beta" textBadgeTone="amber" />
+          <SidebarNavItem to="/goals" label="Goals" icon={Target} />
         </SidebarSection>
 
         <SidebarProjects />
 
         <SidebarAgents />
 
-        <SidebarSection label={t("Company")}>
-          <SidebarNavItem to="/org" label={t("Org")} icon={Network} />
-          <SidebarNavItem to="/costs" label={t("Costs")} icon={DollarSign} />
-          <SidebarNavItem to="/activity" label={t("Activity")} icon={History} />
-          <SidebarNavItem to="/company/settings" label={t("Settings")} icon={Settings} />
+        <SidebarSection label="Company">
+          <SidebarNavItem to="/org" label="Org" icon={Network} />
+          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
+          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
+          <SidebarNavItem to="/activity" label="Activity" icon={History} />
+          <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
         </SidebarSection>
 
         <PluginSlotOutlet

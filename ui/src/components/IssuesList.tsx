@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { startTransition, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { issuesApi } from "../api/issues";
@@ -23,7 +24,6 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import type { Issue } from "@paperclipai/shared";
-import { useTranslation } from "react-i18next";
 
 /* ── Helpers ── */
 
@@ -41,6 +41,7 @@ export type IssueViewState = {
   priorities: string[];
   assignees: string[];
   labels: string[];
+  projects: string[];
   sortField: "status" | "priority" | "title" | "created" | "updated";
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "none";
@@ -53,6 +54,7 @@ const defaultViewState: IssueViewState = {
   priorities: [],
   assignees: [],
   labels: [],
+  projects: [],
   sortField: "updated",
   sortDir: "desc",
   groupBy: "none",
@@ -66,6 +68,7 @@ const quickFilterPresets = [
   { label: "Backlog", statuses: ["backlog"] },
   { label: "Done", statuses: ["done", "cancelled"] },
 ];
+const ISSUE_SEARCH_COMMIT_DELAY_MS = 150;
 
 function getViewState(key: string): IssueViewState {
   try {
@@ -105,6 +108,7 @@ function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: st
     });
   }
   if (state.labels.length > 0) result = result.filter((i) => (i.labelIds ?? []).some((id) => state.labels.includes(id)));
+  if (state.projects.length > 0) result = result.filter((i) => i.projectId != null && state.projects.includes(i.projectId));
   return result;
 }
 
@@ -136,6 +140,7 @@ function countActiveFilters(state: IssueViewState): number {
   if (state.priorities.length > 0) count++;
   if (state.assignees.length > 0) count++;
   if (state.labels.length > 0) count++;
+  if (state.projects.length > 0) count++;
   return count;
 }
 
@@ -146,19 +151,66 @@ interface Agent {
   name: string;
 }
 
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
 interface IssuesListProps {
   issues: Issue[];
   isLoading?: boolean;
   error?: Error | null;
   agents?: Agent[];
+  projects?: ProjectOption[];
   liveIssueIds?: Set<string>;
   projectId?: string;
   viewStateKey: string;
   issueLinkState?: unknown;
   initialAssignees?: string[];
   initialSearch?: string;
+  searchFilters?: {
+    participantAgentId?: string;
+  };
   onSearchChange?: (search: string) => void;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
+}
+
+interface IssuesSearchInputProps {
+  initialValue: string;
+  onValueCommitted: (value: string) => void;
+}
+
+function IssuesSearchInput({ initialValue, onValueCommitted }: IssuesSearchInputProps) {
+  const [value, setValue] = useState(initialValue);
+  const onValueCommittedRef = useRef(onValueCommitted);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
+  useEffect(() => {
+    onValueCommittedRef.current = onValueCommitted;
+  }, [onValueCommitted]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      onValueCommittedRef.current(value);
+    }, ISSUE_SEARCH_COMMIT_DELAY_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [value]);
+
+  return (
+    <div className="relative w-48 sm:w-64 md:w-80">
+      <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Search issues..."
+        className="pl-7 text-xs sm:text-sm"
+        aria-label="Search issues"
+      />
+    </div>
+  );
 }
 
 export function IssuesList({
@@ -166,16 +218,17 @@ export function IssuesList({
   isLoading,
   error,
   agents,
+  projects,
   liveIssueIds,
   projectId,
   viewStateKey,
   issueLinkState,
   initialAssignees,
   initialSearch,
+  searchFilters,
   onSearchChange,
   onUpdateIssue,
 }: IssuesListProps) {
-    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
   const { data: session } = useQuery({
@@ -196,19 +249,11 @@ export function IssuesList({
   const [assigneePickerIssueId, setAssigneePickerIssueId] = useState<string | null>(null);
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [issueSearch, setIssueSearch] = useState(initialSearch ?? "");
-  const [debouncedIssueSearch, setDebouncedIssueSearch] = useState(issueSearch);
-  const normalizedIssueSearch = debouncedIssueSearch.trim();
+  const normalizedIssueSearch = issueSearch.trim();
 
   useEffect(() => {
     setIssueSearch(initialSearch ?? "");
   }, [initialSearch]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedIssueSearch(issueSearch);
-    }, 300);
-    return () => window.clearTimeout(timeoutId);
-  }, [issueSearch]);
 
   // Reload view state from localStorage when company changes (scopedKey changes).
   const prevScopedKey = useRef(scopedKey);
@@ -221,6 +266,13 @@ export function IssuesList({
     }
   }, [scopedKey, initialAssignees]);
 
+  const handleIssueSearchCommit = useCallback((nextSearch: string) => {
+    startTransition(() => {
+      setIssueSearch(nextSearch);
+    });
+    onSearchChange?.(nextSearch);
+  }, [onSearchChange]);
+
   const updateView = useCallback((patch: Partial<IssueViewState>) => {
     setViewState((prev) => {
       const next = { ...prev, ...patch };
@@ -230,9 +282,13 @@ export function IssuesList({
   }, [scopedKey]);
 
   const { data: searchedIssues = [] } = useQuery({
-    queryKey: queryKeys.issues.search(selectedCompanyId!, normalizedIssueSearch, projectId),
-    queryFn: () => issuesApi.list(selectedCompanyId!, { q: normalizedIssueSearch, projectId }),
+    queryKey: [
+      ...queryKeys.issues.search(selectedCompanyId!, normalizedIssueSearch, projectId),
+      searchFilters ?? {},
+    ],
+    queryFn: () => issuesApi.list(selectedCompanyId!, { q: normalizedIssueSearch, projectId, ...searchFilters }),
     enabled: !!selectedCompanyId && normalizedIssueSearch.length > 0,
+    placeholderData: (previousData) => previousData,
   });
 
   const agentName = useCallback((id: string | null) => {
@@ -314,21 +370,12 @@ export function IssuesList({
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Button size="sm" variant="outline" onClick={() => openNewIssue(newIssueDefaults())}>
             <Plus className="h-4 w-4 sm:mr-1" />
-            <span className="hidden sm:inline">{t("New Issue")}</span>
+            <span className="hidden sm:inline">New Issue</span>
           </Button>
-          <div className="relative w-48 sm:w-64 md:w-80">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={issueSearch}
-              onChange={(e) => {
-                setIssueSearch(e.target.value);
-                onSearchChange?.(e.target.value);
-              }}
-              placeholder={t("Search issues...")}
-              className="pl-7 text-xs sm:text-sm"
-              aria-label={t("Search issues")}
-            />
-          </div>
+          <IssuesSearchInput
+            initialValue={initialSearch ?? ""}
+            onValueCommitted={handleIssueSearchCommit}
+          />
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
@@ -337,14 +384,14 @@ export function IssuesList({
             <button
               className={`p-1.5 transition-colors ${viewState.viewMode === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => updateView({ viewMode: "list" })}
-              title={t("List view")}
+              title="List view"
             >
               <List className="h-3.5 w-3.5" />
             </button>
             <button
               className={`p-1.5 transition-colors ${viewState.viewMode === "board" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => updateView({ viewMode: "board" })}
-              title={t("Board view")}
+              title="Board view"
             >
               <Columns3 className="h-3.5 w-3.5" />
             </button>
@@ -364,7 +411,7 @@ export function IssuesList({
                     className="h-3 w-3 ml-1 hidden sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
-                      updateView({ statuses: [], priorities: [], assignees: [], labels: [] });
+                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [] });
                     }}
                   />
                 )}
@@ -373,19 +420,20 @@ export function IssuesList({
             <PopoverContent align="end" className="w-[min(480px,calc(100vw-2rem))] p-0">
               <div className="p-3 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{t("Filters")}</span>
+                  <span className="text-sm font-medium">Filters</span>
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
                     >
-                      {t("Clear")}</button>
+                      Clear
+                    </button>
                   )}
                 </div>
 
                 {/* Quick filters */}
                 <div className="space-y-1.5">
-                  <span className="text-xs text-muted-foreground">{t("Quick filters")}</span>
+                  <span className="text-xs text-muted-foreground">Quick filters</span>
                   <div className="flex flex-wrap gap-1.5">
                     {quickFilterPresets.map((preset) => {
                       const isActive = arraysEqual(viewState.statuses, preset.statuses);
@@ -412,7 +460,7 @@ export function IssuesList({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                   {/* Status */}
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">{t("Status")}</span>
+                    <span className="text-xs text-muted-foreground">Status</span>
                     <div className="space-y-0.5">
                       {statusOrder.map((s) => (
                         <label key={s} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
@@ -431,7 +479,7 @@ export function IssuesList({
                   <div className="space-y-3">
                     {/* Priority */}
                     <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground">{t("Priority")}</span>
+                      <span className="text-xs text-muted-foreground">Priority</span>
                       <div className="space-y-0.5">
                         {priorityOrder.map((p) => (
                           <label key={p} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
@@ -448,14 +496,14 @@ export function IssuesList({
 
                     {/* Assignee */}
                     <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground">{t("Assignee")}</span>
+                      <span className="text-xs text-muted-foreground">Assignee</span>
                       <div className="space-y-0.5 max-h-32 overflow-y-auto">
                         <label className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
                           <Checkbox
                             checked={viewState.assignees.includes("__unassigned")}
                             onCheckedChange={() => updateView({ assignees: toggleInArray(viewState.assignees, "__unassigned") })}
                           />
-                          <span className="text-sm">{t("No assignee")}</span>
+                          <span className="text-sm">No assignee</span>
                         </label>
                         {currentUserId && (
                           <label className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
@@ -464,7 +512,7 @@ export function IssuesList({
                               onCheckedChange={() => updateView({ assignees: toggleInArray(viewState.assignees, "__me") })}
                             />
                             <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-sm">{t("Me")}</span>
+                            <span className="text-sm">Me</span>
                           </label>
                         )}
                         {(agents ?? []).map((agent) => (
@@ -481,7 +529,7 @@ export function IssuesList({
 
                     {labels && labels.length > 0 && (
                       <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">{t("Labels")}</span>
+                        <span className="text-xs text-muted-foreground">Labels</span>
                         <div className="space-y-0.5 max-h-32 overflow-y-auto">
                           {labels.map((label) => (
                             <label key={label.id} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
@@ -491,6 +539,23 @@ export function IssuesList({
                               />
                               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color }} />
                               <span className="text-sm">{label.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {projects && projects.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Project</span>
+                        <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                          {projects.map((project) => (
+                            <label key={project.id} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
+                              <Checkbox
+                                checked={viewState.projects.includes(project.id)}
+                                onCheckedChange={() => updateView({ projects: toggleInArray(viewState.projects, project.id) })}
+                              />
+                              <span className="text-sm">{project.name}</span>
                             </label>
                           ))}
                         </div>
@@ -508,7 +573,7 @@ export function IssuesList({
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-xs">
                   <ArrowUpDown className="h-3.5 w-3.5 sm:h-3 sm:w-3 sm:mr-1" />
-                  <span className="hidden sm:inline">{t("Sort")}</span>
+                  <span className="hidden sm:inline">Sort</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-48 p-0">
@@ -552,7 +617,7 @@ export function IssuesList({
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-xs">
                   <Layers className="h-3.5 w-3.5 sm:h-3 sm:w-3 sm:mr-1" />
-                  <span className="hidden sm:inline">{t("Group")}</span>
+                  <span className="hidden sm:inline">Group</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-44 p-0">
@@ -653,9 +718,6 @@ export function IssuesList({
                   )}
                   desktopMetaLeading={(
                     <>
-                      <span className="hidden sm:inline-flex">
-                        <PriorityIcon priority={issue.priority} />
-                      </span>
                       <span
                         className="hidden shrink-0 sm:inline-flex"
                         onClick={(e) => {
@@ -678,7 +740,8 @@ export function IssuesList({
                             <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
                           </span>
                           <span className="hidden text-[11px] font-medium text-blue-600 dark:text-blue-400 sm:inline">
-                            {t("Live")}</span>
+                            Live
+                          </span>
                         </span>
                       )}
                     </>
@@ -694,7 +757,7 @@ export function IssuesList({
                               className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
                               style={{
                                 borderColor: label.color,
-                                color: label.color,
+                                color: pickTextColorForPillBg(label.color, 0.12),
                                 backgroundColor: `${label.color}1f`,
                               }}
                             >
@@ -737,7 +800,8 @@ export function IssuesList({
                                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/35 bg-muted/30">
                                   <User className="h-3 w-3" />
                                 </span>
-                                {t("Assignee")}</span>
+                                Assignee
+                              </span>
                             )}
                           </button>
                         </PopoverTrigger>
@@ -749,7 +813,7 @@ export function IssuesList({
                         >
                           <input
                             className="mb-1 w-full border-b border-border bg-transparent px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground/50"
-                            placeholder={t("Search assignees...")}
+                            placeholder="Search assignees..."
                             value={assigneeSearch}
                             onChange={(e) => setAssigneeSearch(e.target.value)}
                             autoFocus
@@ -766,7 +830,8 @@ export function IssuesList({
                                 assignIssue(issue.id, null, null);
                               }}
                             >
-                              {t("No assignee")}</button>
+                              No assignee
+                            </button>
                             {currentUserId && (
                               <button
                                 className={cn(
@@ -780,7 +845,7 @@ export function IssuesList({
                                 }}
                               >
                                 <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                <span>{t("Me")}</span>
+                                <span>Me</span>
                               </button>
                             )}
                             {(agents ?? [])

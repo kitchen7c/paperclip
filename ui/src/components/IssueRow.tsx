@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { Issue } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
+import { X } from "lucide-react";
 import { cn } from "../lib/utils";
-import { PriorityIcon } from "./PriorityIcon";
 import { StatusIcon } from "./StatusIcon";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +19,8 @@ interface IssueRowProps {
   trailingMeta?: ReactNode;
   unreadState?: UnreadState | null;
   onMarkRead?: () => void;
+  onArchive?: () => void;
+  archiveDisabled?: boolean;
   className?: string;
 }
 
@@ -33,6 +35,8 @@ export function IssueRow({
   trailingMeta,
   unreadState = null,
   onMarkRead,
+  onArchive,
+  archiveDisabled,
   className,
 }: IssueRowProps) {
     const { t } = useTranslation();
@@ -46,7 +50,7 @@ export function IssueRow({
       to={`/issues/${issuePathId}`}
       state={issueLinkState}
       className={cn(
-        "flex items-start gap-2 border-b border-border py-2.5 pl-2 pr-3 text-sm no-underline text-inherit transition-colors hover:bg-accent/50 last:border-b-0 sm:items-center sm:py-2 sm:pl-1",
+        "group flex items-start gap-2 border-b border-border py-2.5 pl-2 pr-3 text-sm no-underline text-inherit transition-colors hover:bg-accent/50 last:border-b-0 sm:items-center sm:py-2 sm:pl-1",
         className,
       )}
     >
@@ -63,9 +67,6 @@ export function IssueRow({
           ) : null}
           {desktopMetaLeading ?? (
             <>
-              <span className="hidden sm:inline-flex">
-                <PriorityIcon priority={issue.priority} />
-              </span>
               <span className="hidden shrink-0 sm:inline-flex">
                 <StatusIcon status={issue.status} />
               </span>
@@ -118,6 +119,26 @@ export function IssueRow({
                   unreadState === "fading" ? "opacity-0" : "opacity-100",
                 )}
               />
+            </button>
+          ) : onArchive ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onArchive();
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                onArchive();
+              }}
+              disabled={archiveDisabled}
+              className="inline-flex h-4 w-4 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-30"
+              aria-label="Dismiss from inbox"
+            >
+              <X className="h-3.5 w-3.5" />
             </button>
           ) : (
             <span className="inline-flex h-4 w-4" aria-hidden="true" />

@@ -4,38 +4,38 @@ import { useNavigate, useSearchParams } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { agentsApi } from "../api/agents";
+import { companySkillsApi } from "../api/companySkills";
 import { queryKeys } from "../lib/queryKeys";
 import { AGENT_ROLES } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Shield, User } from "lucide-react";
+import { Shield } from "lucide-react";
 import { cn, agentUrl } from "../lib/utils";
 import { roleLabels } from "../components/agent-config-primitives";
 import { AgentConfigForm, type CreateConfigValues } from "../components/AgentConfigForm";
 import { defaultCreateValues } from "../components/agent-config-defaults";
 import { getUIAdapter } from "../adapters";
-import { AgentIcon } from "../components/AgentIconPicker";
+import { ReportsToPicker } from "../components/ReportsToPicker";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
 } from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
-import { DEFAULT_REMOTE_CLI_MODEL } from "@paperclipai/adapter-remote-cli";
-import { useTranslation } from "react-i18next";
 
 const SUPPORTED_ADVANCED_ADAPTER_TYPES = new Set<CreateConfigValues["adapterType"]>([
   "claude_local",
   "codex_local",
   "gemini_local",
-  "remote_cli",
   "opencode_local",
   "pi_local",
   "cursor",
+  "hermes_local",
   "openclaw_gateway",
 ]);
 
@@ -50,8 +50,6 @@ function createValuesForAdapterType(
       DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
   } else if (adapterType === "gemini_local") {
     nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
-  } else if (adapterType === "remote_cli") {
-    nextValues.model = DEFAULT_REMOTE_CLI_MODEL;
   } else if (adapterType === "cursor") {
     nextValues.model = DEFAULT_CURSOR_LOCAL_MODEL;
   } else if (adapterType === "opencode_local") {
@@ -61,7 +59,6 @@ function createValuesForAdapterType(
 }
 
 export function NewAgent() {
-    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -72,10 +69,10 @@ export function NewAgent() {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [role, setRole] = useState("general");
-  const [reportsTo, setReportsTo] = useState("");
+  const [reportsTo, setReportsTo] = useState<string | null>(null);
   const [configValues, setConfigValues] = useState<CreateConfigValues>(defaultCreateValues);
+  const [selectedSkillKeys, setSelectedSkillKeys] = useState<string[]>([]);
   const [roleOpen, setRoleOpen] = useState(false);
-  const [reportsToOpen, setReportsToOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: agents } = useQuery({
@@ -94,6 +91,12 @@ export function NewAgent() {
       ? queryKeys.agents.adapterModels(selectedCompanyId, configValues.adapterType)
       : ["agents", "none", "adapter-models", configValues.adapterType],
     queryFn: () => agentsApi.adapterModels(selectedCompanyId!, configValues.adapterType),
+    enabled: Boolean(selectedCompanyId),
+  });
+
+  const { data: companySkills } = useQuery({
+    queryKey: queryKeys.companySkills.list(selectedCompanyId ?? ""),
+    queryFn: () => companySkillsApi.list(selectedCompanyId!),
     enabled: Boolean(selectedCompanyId),
   });
 
@@ -180,6 +183,7 @@ export function NewAgent() {
       role: effectiveRole,
       ...(title.trim() ? { title: title.trim() } : {}),
       ...(reportsTo ? { reportsTo } : {}),
+      ...(selectedSkillKeys.length > 0 ? { desiredSkills: selectedSkillKeys } : {}),
       adapterType: configValues.adapterType,
       adapterConfig: buildAdapterConfig(),
       runtimeConfig: {
@@ -195,14 +199,24 @@ export function NewAgent() {
     });
   }
 
-  const currentReportsTo = (agents ?? []).find((a) => a.id === reportsTo);
+  const availableSkills = (companySkills ?? []).filter((skill) => !skill.key.startsWith("paperclipai/paperclip/"));
+
+  function toggleSkill(key: string, checked: boolean) {
+    setSelectedSkillKeys((prev) => {
+      if (checked) {
+        return prev.includes(key) ? prev : [...prev, key];
+      }
+      return prev.filter((value) => value !== key);
+    });
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-lg font-semibold">{t("New Agent")}</h1>
+        <h1 className="text-lg font-semibold">New Agent</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {t("Advanced agent configuration")}</p>
+          Advanced agent configuration
+        </p>
       </div>
 
       <div className="border border-border">
@@ -210,7 +224,7 @@ export function NewAgent() {
         <div className="px-4 pt-4 pb-2">
           <input
             className="w-full text-lg font-semibold bg-transparent outline-none placeholder:text-muted-foreground/50"
-            placeholder={t("Agent name")}
+            placeholder="Agent name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -221,7 +235,7 @@ export function NewAgent() {
         <div className="px-4 pb-2">
           <input
             className="w-full bg-transparent outline-none text-sm text-muted-foreground placeholder:text-muted-foreground/40"
-            placeholder={t("Title (e.g. VP of Engineering)")}
+            placeholder="Title (e.g. VP of Engineering)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -258,53 +272,12 @@ export function NewAgent() {
             </PopoverContent>
           </Popover>
 
-          <Popover open={reportsToOpen} onOpenChange={setReportsToOpen}>
-            <PopoverTrigger asChild>
-              <button
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors",
-                  isFirstAgent && "opacity-60 cursor-not-allowed"
-                )}
-                disabled={isFirstAgent}
-              >
-                {currentReportsTo ? (
-                  <>
-                    <AgentIcon icon={currentReportsTo.icon} className="h-3 w-3 text-muted-foreground" />
-                    {`Reports to ${currentReportsTo.name}`}
-                  </>
-                ) : (
-                  <>
-                    <User className="h-3 w-3 text-muted-foreground" />
-                    {isFirstAgent ? "Reports to: N/A (CEO)" : "Reports to..."}
-                  </>
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-1" align="start">
-              <button
-                className={cn(
-                  "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                  !reportsTo && "bg-accent"
-                )}
-                onClick={() => { setReportsTo(""); setReportsToOpen(false); }}
-              >
-                {t("No manager")}</button>
-              {(agents ?? []).map((a) => (
-                <button
-                  key={a.id}
-                  className={cn(
-                    "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 truncate",
-                    a.id === reportsTo && "bg-accent"
-                  )}
-                  onClick={() => { setReportsTo(a.id); setReportsToOpen(false); }}
-                >
-                  <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-                  {a.name}
-                  <span className="text-muted-foreground ml-auto">{roleLabels[a.role] ?? a.role}</span>
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
+          <ReportsToPicker
+            agents={agents ?? []}
+            value={reportsTo}
+            onChange={setReportsTo}
+            disabled={isFirstAgent}
+          />
         </div>
 
         {/* Shared config form */}
@@ -315,17 +288,56 @@ export function NewAgent() {
           adapterModels={adapterModels}
         />
 
+        <div className="border-t border-border px-4 py-4">
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-sm font-medium">Company skills</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Optional skills from the company library. Built-in Paperclip runtime skills are added automatically.
+              </p>
+            </div>
+            {availableSkills.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No optional company skills installed yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {availableSkills.map((skill) => {
+                  const inputId = `skill-${skill.id}`;
+                  const checked = selectedSkillKeys.includes(skill.key);
+                  return (
+                    <div key={skill.id} className="flex items-start gap-3">
+                      <Checkbox
+                        id={inputId}
+                        checked={checked}
+                        onCheckedChange={(next) => toggleSkill(skill.key, next === true)}
+                      />
+                      <label htmlFor={inputId} className="grid gap-1 leading-none">
+                        <span className="text-sm font-medium">{skill.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {skill.description ?? skill.key}
+                        </span>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Footer */}
         <div className="border-t border-border px-4 py-3">
           {isFirstAgent && (
-            <p className="text-xs text-muted-foreground mb-2">{t("This will be the CEO")}</p>
+            <p className="text-xs text-muted-foreground mb-2">This will be the CEO</p>
           )}
           {formError && (
             <p className="text-xs text-destructive mb-2">{formError}</p>
           )}
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate("/agents")}>
-              {t("Cancel")}</Button>
+              Cancel
+            </Button>
             <Button
               size="sm"
               disabled={!name.trim() || createAgent.isPending}

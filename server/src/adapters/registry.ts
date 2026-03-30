@@ -2,6 +2,8 @@ import type { ServerAdapterModule } from "./types.js";
 import { getAdapterSessionManagement } from "@paperclipai/adapter-utils";
 import {
   execute as claudeExecute,
+  listClaudeSkills,
+  syncClaudeSkills,
   testEnvironment as claudeTestEnvironment,
   sessionCodec as claudeSessionCodec,
   getQuotaWindows as claudeGetQuotaWindows,
@@ -9,6 +11,8 @@ import {
 import { agentConfigurationDoc as claudeAgentConfigurationDoc, models as claudeModels } from "@paperclipai/adapter-claude-local";
 import {
   execute as codexExecute,
+  listCodexSkills,
+  syncCodexSkills,
   testEnvironment as codexTestEnvironment,
   sessionCodec as codexSessionCodec,
   getQuotaWindows as codexGetQuotaWindows,
@@ -16,18 +20,24 @@ import {
 import { agentConfigurationDoc as codexAgentConfigurationDoc, models as codexModels } from "@paperclipai/adapter-codex-local";
 import {
   execute as cursorExecute,
+  listCursorSkills,
+  syncCursorSkills,
   testEnvironment as cursorTestEnvironment,
   sessionCodec as cursorSessionCodec,
 } from "@paperclipai/adapter-cursor-local/server";
 import { agentConfigurationDoc as cursorAgentConfigurationDoc, models as cursorModels } from "@paperclipai/adapter-cursor-local";
 import {
   execute as geminiExecute,
+  listGeminiSkills,
+  syncGeminiSkills,
   testEnvironment as geminiTestEnvironment,
   sessionCodec as geminiSessionCodec,
 } from "@paperclipai/adapter-gemini-local/server";
 import { agentConfigurationDoc as geminiAgentConfigurationDoc, models as geminiModels } from "@paperclipai/adapter-gemini-local";
 import {
   execute as openCodeExecute,
+  listOpenCodeSkills,
+  syncOpenCodeSkills,
   testEnvironment as openCodeTestEnvironment,
   sessionCodec as openCodeSessionCodec,
   listOpenCodeModels,
@@ -47,6 +57,8 @@ import { listCodexModels } from "./codex-models.js";
 import { listCursorModels } from "./cursor-models.js";
 import {
   execute as piExecute,
+  listPiSkills,
+  syncPiSkills,
   testEnvironment as piTestEnvironment,
   sessionCodec as piSessionCodec,
   listPiModels,
@@ -58,6 +70,9 @@ import {
   execute as hermesExecute,
   testEnvironment as hermesTestEnvironment,
   sessionCodec as hermesSessionCodec,
+  listSkills as hermesListSkills,
+  syncSkills as hermesSyncSkills,
+  detectModel as detectModelFromHermes,
 } from "hermes-paperclip-adapter/server";
 import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
@@ -79,6 +94,8 @@ const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",
   execute: claudeExecute,
   testEnvironment: claudeTestEnvironment,
+  listSkills: listClaudeSkills,
+  syncSkills: syncClaudeSkills,
   sessionCodec: claudeSessionCodec,
   sessionManagement: getAdapterSessionManagement("claude_local") ?? undefined,
   models: claudeModels,
@@ -91,6 +108,8 @@ const codexLocalAdapter: ServerAdapterModule = {
   type: "codex_local",
   execute: codexExecute,
   testEnvironment: codexTestEnvironment,
+  listSkills: listCodexSkills,
+  syncSkills: syncCodexSkills,
   sessionCodec: codexSessionCodec,
   sessionManagement: getAdapterSessionManagement("codex_local") ?? undefined,
   models: codexModels,
@@ -104,6 +123,8 @@ const cursorLocalAdapter: ServerAdapterModule = {
   type: "cursor",
   execute: cursorExecute,
   testEnvironment: cursorTestEnvironment,
+  listSkills: listCursorSkills,
+  syncSkills: syncCursorSkills,
   sessionCodec: cursorSessionCodec,
   sessionManagement: getAdapterSessionManagement("cursor") ?? undefined,
   models: cursorModels,
@@ -116,6 +137,8 @@ const geminiLocalAdapter: ServerAdapterModule = {
   type: "gemini_local",
   execute: geminiExecute,
   testEnvironment: geminiTestEnvironment,
+  listSkills: listGeminiSkills,
+  syncSkills: syncGeminiSkills,
   sessionCodec: geminiSessionCodec,
   sessionManagement: getAdapterSessionManagement("gemini_local") ?? undefined,
   models: geminiModels,
@@ -136,6 +159,8 @@ const openCodeLocalAdapter: ServerAdapterModule = {
   type: "opencode_local",
   execute: openCodeExecute,
   testEnvironment: openCodeTestEnvironment,
+  listSkills: listOpenCodeSkills,
+  syncSkills: syncOpenCodeSkills,
   sessionCodec: openCodeSessionCodec,
   sessionManagement: getAdapterSessionManagement("opencode_local") ?? undefined,
   models: [],
@@ -148,6 +173,8 @@ const piLocalAdapter: ServerAdapterModule = {
   type: "pi_local",
   execute: piExecute,
   testEnvironment: piTestEnvironment,
+  listSkills: listPiSkills,
+  syncSkills: syncPiSkills,
   sessionCodec: piSessionCodec,
   sessionManagement: getAdapterSessionManagement("pi_local") ?? undefined,
   models: [],
@@ -171,9 +198,12 @@ const hermesLocalAdapter: ServerAdapterModule = {
   execute: hermesExecute,
   testEnvironment: hermesTestEnvironment,
   sessionCodec: hermesSessionCodec,
+  listSkills: hermesListSkills,
+  syncSkills: hermesSyncSkills,
   models: hermesModels,
   supportsLocalAgentJwt: true,
   agentConfigurationDoc: hermesAgentConfigurationDoc,
+  detectModel: () => detectModelFromHermes(),
 };
 
 const adaptersByType = new Map<string, ServerAdapterModule>(
@@ -213,6 +243,15 @@ export async function listAdapterModels(type: string): Promise<{ id: string; lab
 
 export function listServerAdapters(): ServerAdapterModule[] {
   return Array.from(adaptersByType.values());
+}
+
+export async function detectAdapterModel(
+  type: string,
+): Promise<{ model: string; provider: string; source: string } | null> {
+  const adapter = adaptersByType.get(type);
+  if (!adapter?.detectModel) return null;
+  const detected = await adapter.detectModel();
+  return detected ? { model: detected.model, provider: detected.provider, source: detected.source } : null;
 }
 
 export function findServerAdapter(type: string): ServerAdapterModule | null {

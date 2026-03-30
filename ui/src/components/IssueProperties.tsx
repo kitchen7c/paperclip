@@ -1,11 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link } from "@/lib/router";
 import type { Issue } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
-import { executionWorkspacesApi } from "../api/execution-workspaces";
-import { instanceSettingsApi } from "../api/instanceSettings";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
@@ -20,15 +19,8 @@ import { formatDate, cn, projectUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2, Copy, Check } from "lucide-react";
+import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2 } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
-import { useTranslation } from "react-i18next";
-
-const EXECUTION_WORKSPACE_OPTIONS = [
-  { value: "shared_workspace", label: "Project default" },
-  { value: "isolated_workspace", label: "New isolated workspace" },
-  { value: "reuse_existing", label: "Reuse existing workspace" },
-] as const;
 
 function defaultProjectWorkspaceIdForProject(project: {
   workspaces?: Array<{ id: string; isPrimary: boolean }>;
@@ -48,12 +40,6 @@ function defaultExecutionWorkspaceModeForProject(project: { executionWorkspacePo
   return "shared_workspace";
 }
 
-function issueModeForExistingWorkspace(mode: string | null | undefined) {
-  if (mode === "isolated_workspace" || mode === "operator_branch" || mode === "shared_workspace") return mode;
-  if (mode === "adapter_managed" || mode === "cloud_sandbox") return "agent_default";
-  return "shared_workspace";
-}
-
 interface IssuePropertiesProps {
   issue: Issue;
   onUpdate: (data: Record<string, unknown>) => void;
@@ -61,7 +47,6 @@ interface IssuePropertiesProps {
 }
 
 function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
-    const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 py-1.5">
       <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
@@ -94,7 +79,6 @@ function PropertyPicker({
   extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
-    const { t } = useTranslation();
   const btnCn = cn(
     "inline-flex items-center gap-1.5 cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 py-0.5 transition-colors",
     triggerClassName,
@@ -133,51 +117,7 @@ function PropertyPicker({
   );
 }
 
-/** Splits a string at `/` and `-` boundaries, inserting <wbr> for natural line breaks. */
-function BreakablePath({ text }: { text: string }) {
-  const parts: React.ReactNode[] = [];
-  // Split on path separators and hyphens, keeping them in the output
-  const segments = text.split(/(?<=[\/-])/);
-  for (let i = 0; i < segments.length; i++) {
-    if (i > 0) parts.push(<wbr key={i} />);
-    parts.push(segments[i]);
-  }
-  return <>{parts}</>;
-}
-
-/** Displays a value with a copy-to-clipboard icon and "Copied!" feedback. */
-function CopyableValue({ value, label, mono, className }: { value: string; label?: string; mono?: boolean; className?: string }) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 1500);
-    } catch { /* noop */ }
-  }, [value]);
-
-  return (
-    <div className={cn("flex items-start gap-1 group", className)}>
-      <span className="min-w-0" style={{ overflowWrap: "anywhere" }}>
-        {label && <span className="text-muted-foreground">{label} </span>}
-        <span className={mono ? "font-mono" : undefined}><BreakablePath text={value} /></span>
-      </span>
-      <button
-        type="button"
-        className="shrink-0 mt-0.5 p-0.5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
-        onClick={handleCopy}
-        title={copied ? "Copied!" : "Copy to clipboard"}
-      >
-        {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-      </button>
-    </div>
-  );
-}
-
 export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProps) {
-    const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
@@ -193,10 +133,6 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
-  });
-  const { data: experimentalSettings } = useQuery({
-    queryKey: queryKeys.instance.experimentalSettings,
-    queryFn: () => instanceSettingsApi.getExperimental(),
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId;
 
@@ -267,44 +203,6 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const currentProject = issue.projectId
     ? orderedProjects.find((project) => project.id === issue.projectId) ?? null
     : null;
-  const currentProjectExecutionWorkspacePolicy =
-    experimentalSettings?.enableIsolatedWorkspaces === true
-      ? currentProject?.executionWorkspacePolicy ?? null
-      : null;
-  const currentProjectSupportsExecutionWorkspace = Boolean(currentProjectExecutionWorkspacePolicy?.enabled);
-  const currentExecutionWorkspaceSelection =
-    issue.executionWorkspacePreference
-    ?? issue.executionWorkspaceSettings?.mode
-    ?? defaultExecutionWorkspaceModeForProject(currentProject);
-  const { data: reusableExecutionWorkspaces } = useQuery({
-    queryKey: queryKeys.executionWorkspaces.list(companyId!, {
-      projectId: issue.projectId ?? undefined,
-      projectWorkspaceId: issue.projectWorkspaceId ?? undefined,
-      reuseEligible: true,
-    }),
-    queryFn: () =>
-      executionWorkspacesApi.list(companyId!, {
-        projectId: issue.projectId ?? undefined,
-        projectWorkspaceId: issue.projectWorkspaceId ?? undefined,
-        reuseEligible: true,
-      }),
-    enabled: Boolean(companyId) && Boolean(issue.projectId),
-  });
-  const deduplicatedReusableWorkspaces = useMemo(() => {
-    const workspaces = reusableExecutionWorkspaces ?? [];
-    const seen = new Map<string, typeof workspaces[number]>();
-    for (const ws of workspaces) {
-      const key = ws.cwd ?? ws.id;
-      const existing = seen.get(key);
-      if (!existing || new Date(ws.lastUsedAt) > new Date(existing.lastUsedAt)) {
-        seen.set(key, ws);
-      }
-    }
-    return Array.from(seen.values());
-  }, [reusableExecutionWorkspaces]);
-  const selectedReusableExecutionWorkspace = deduplicatedReusableWorkspaces.find(
-    (workspace) => workspace.id === issue.executionWorkspaceId,
-  );
   const projectLink = (id: string | null) => {
     if (!id) return null;
     const project = projects?.find((p) => p.id === id) ?? null;
@@ -333,7 +231,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           style={{
             borderColor: label.color,
             backgroundColor: `${label.color}22`,
-            color: label.color,
+            color: pickTextColorForPillBg(label.color, 0.13),
           }}
         >
           {label.name}
@@ -346,7 +244,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   ) : (
     <>
       <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">{t("No labels")}</span>
+      <span className="text-sm text-muted-foreground">No labels</span>
     </>
   );
 
@@ -354,7 +252,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder={t("Search labels...")}
+        placeholder="Search labels..."
         value={labelSearch}
         onChange={(e) => setLabelSearch(e.target.value)}
         autoFocus={!inline}
@@ -401,7 +299,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           />
           <input
             className="flex-1 px-2 py-1.5 text-xs bg-transparent outline-none rounded placeholder:text-muted-foreground/50"
-            placeholder={t("New label")}
+            placeholder="New label"
             value={newLabelName}
             onChange={(e) => setNewLabelName(e.target.value)}
           />
@@ -433,7 +331,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   ) : (
     <>
       <User className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">{t("Unassigned")}</span>
+      <span className="text-sm text-muted-foreground">Unassigned</span>
     </>
   );
 
@@ -441,7 +339,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder={t("Search assignees...")}
+        placeholder="Search assignees..."
         value={assigneeSearch}
         onChange={(e) => setAssigneeSearch(e.target.value)}
         autoFocus={!inline}
@@ -454,7 +352,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           )}
           onClick={() => { onUpdate({ assigneeAgentId: null, assigneeUserId: null }); setAssigneeOpen(false); }}
         >
-          {t("No assignee")}</button>
+          No assignee
+        </button>
         {currentUserId && (
           <button
             className={cn(
@@ -467,7 +366,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             }}
           >
             <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-            {t("Assign to me")}</button>
+            Assign to me
+          </button>
         )}
         {issue.createdByUserId && issue.createdByUserId !== currentUserId && (
           <button
@@ -518,7 +418,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   ) : (
     <>
       <Hexagon className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">{t("No project")}</span>
+      <span className="text-sm text-muted-foreground">No project</span>
     </>
   );
 
@@ -526,7 +426,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder={t("Search projects...")}
+        placeholder="Search projects..."
         value={projectSearch}
         onChange={(e) => setProjectSearch(e.target.value)}
         autoFocus={!inline}
@@ -548,7 +448,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             setProjectOpen(false);
           }}
         >
-          {t("No project")}</button>
+          No project
+        </button>
         {orderedProjects
           .filter((p) => {
             if (!projectSearch.trim()) return true;
@@ -590,7 +491,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <PropertyRow label={t("Status")}>
+        <PropertyRow label="Status">
           <StatusIcon
             status={issue.status}
             onChange={(status) => onUpdate({ status })}
@@ -598,7 +499,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           />
         </PropertyRow>
 
-        <PropertyRow label={t("Priority")}>
+        <PropertyRow label="Priority">
           <PriorityIcon
             priority={issue.priority}
             onChange={(priority) => onUpdate({ priority })}
@@ -608,7 +509,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label={t("Labels")}
+          label="Labels"
           open={labelsOpen}
           onOpenChange={(open) => { setLabelsOpen(open); if (!open) setLabelSearch(""); }}
           triggerContent={labelsTrigger}
@@ -620,7 +521,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label={t("Assignee")}
+          label="Assignee"
           open={assigneeOpen}
           onOpenChange={(open) => { setAssigneeOpen(open); if (!open) setAssigneeSearch(""); }}
           triggerContent={assigneeTrigger}
@@ -640,7 +541,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label={t("Project")}
+          label="Project"
           open={projectOpen}
           onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
           triggerContent={projectTrigger}
@@ -659,93 +560,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           {projectContent}
         </PropertyPicker>
 
-        {currentProjectSupportsExecutionWorkspace && (
-          <PropertyRow label={t("Workspace")}>
-            <div className="w-full space-y-2">
-              <select
-                className="w-full rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none"
-                value={currentExecutionWorkspaceSelection}
-                onChange={(e) => {
-                  const nextMode = e.target.value;
-                  onUpdate({
-                    executionWorkspacePreference: nextMode,
-                    executionWorkspaceId: nextMode === "reuse_existing" ? issue.executionWorkspaceId : null,
-                    executionWorkspaceSettings: {
-                      mode:
-                        nextMode === "reuse_existing"
-                          ? issueModeForExistingWorkspace(selectedReusableExecutionWorkspace?.mode)
-                          : nextMode,
-                    },
-                  });
-                }}
-              >
-                {EXECUTION_WORKSPACE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-
-              {currentExecutionWorkspaceSelection === "reuse_existing" && (
-                <select
-                  className="w-full rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none"
-                  value={issue.executionWorkspaceId ?? ""}
-                  onChange={(e) => {
-                    const nextExecutionWorkspaceId = e.target.value || null;
-                    const nextExecutionWorkspace = deduplicatedReusableWorkspaces.find(
-                      (workspace) => workspace.id === nextExecutionWorkspaceId,
-                    );
-                    onUpdate({
-                      executionWorkspacePreference: "reuse_existing",
-                      executionWorkspaceId: nextExecutionWorkspaceId,
-                      executionWorkspaceSettings: {
-                        mode: issueModeForExistingWorkspace(nextExecutionWorkspace?.mode),
-                      },
-                    });
-                  }}
-                >
-                  <option value="">Choose an existing workspace</option>
-                  {deduplicatedReusableWorkspaces.map((workspace) => (
-                    <option key={workspace.id} value={workspace.id}>
-                      {workspace.name} · {workspace.status} · {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {issue.currentExecutionWorkspace && (
-                <div className="text-[11px] text-muted-foreground space-y-0.5">
-                  <div style={{ overflowWrap: "anywhere" }}>
-                    Current:{" "}
-                    <Link
-                      to={`/execution-workspaces/${issue.currentExecutionWorkspace.id}`}
-                      className="hover:text-foreground hover:underline"
-                    >
-                      <BreakablePath text={issue.currentExecutionWorkspace.name} />
-                    </Link>
-                    {" · "}
-                    {issue.currentExecutionWorkspace.status}
-                  </div>
-                  {issue.currentExecutionWorkspace.cwd && (
-                    <CopyableValue value={issue.currentExecutionWorkspace.cwd} mono className="text-[11px]" />
-                  )}
-                  {issue.currentExecutionWorkspace.branchName && (
-                    <CopyableValue value={issue.currentExecutionWorkspace.branchName} label="Branch:" className="text-[11px]" />
-                  )}
-                  {issue.currentExecutionWorkspace.repoUrl && (
-                    <CopyableValue value={issue.currentExecutionWorkspace.repoUrl} label="Repo:" mono className="text-[11px]" />
-                  )}
-                </div>
-              )}
-              {!issue.currentExecutionWorkspace && currentProject?.primaryWorkspace?.cwd && (
-                <CopyableValue value={currentProject.primaryWorkspace.cwd} mono className="text-[11px] text-muted-foreground" />
-              )}
-            </div>
-          </PropertyRow>
-        )}
-
         {issue.parentId && (
-          <PropertyRow label={t("Parent")}>
+          <PropertyRow label="Parent">
             <Link
               to={`/issues/${issue.ancestors?.[0]?.identifier ?? issue.parentId}`}
               className="text-sm hover:underline"
@@ -756,7 +572,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         )}
 
         {issue.requestDepth > 0 && (
-          <PropertyRow label={t("Depth")}>
+          <PropertyRow label="Depth">
             <span className="text-sm font-mono">{issue.requestDepth}</span>
           </PropertyRow>
         )}
@@ -766,7 +582,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
       <div className="space-y-1">
         {(issue.createdByAgentId || issue.createdByUserId) && (
-          <PropertyRow label={t("Created by")}>
+          <PropertyRow label="Created by">
             {issue.createdByAgentId ? (
               <Link
                 to={`/agents/${issue.createdByAgentId}`}
@@ -783,19 +599,19 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           </PropertyRow>
         )}
         {issue.startedAt && (
-          <PropertyRow label={t("Started")}>
+          <PropertyRow label="Started">
             <span className="text-sm">{formatDate(issue.startedAt)}</span>
           </PropertyRow>
         )}
         {issue.completedAt && (
-          <PropertyRow label={t("Completed")}>
+          <PropertyRow label="Completed">
             <span className="text-sm">{formatDate(issue.completedAt)}</span>
           </PropertyRow>
         )}
-        <PropertyRow label={t("Created")}>
+        <PropertyRow label="Created">
           <span className="text-sm">{formatDate(issue.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label={t("Updated")}>
+        <PropertyRow label="Updated">
           <span className="text-sm">{timeAgo(issue.updatedAt)}</span>
         </PropertyRow>
       </div>
