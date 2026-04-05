@@ -1,8 +1,10 @@
 import os from "node:os";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  companySkillService,
   discoverProjectWorkspaceSkillDirectories,
   findMissingLocalSkillIds,
   normalizeGitHubSkillDirectory,
@@ -17,6 +19,11 @@ afterEach(async () => {
   cleanupDirs.clear();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 async function makeTempDir(prefix: string) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
   cleanupDirs.add(dir);
@@ -26,6 +33,84 @@ async function makeTempDir(prefix: string) {
 async function writeSkillDir(skillDir: string, name: string) {
   await fs.mkdir(skillDir, { recursive: true });
   await fs.writeFile(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\n---\n\n# ${name}\n`, "utf8");
+}
+
+function createResponse(status: number, body: string | Record<string, unknown>) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async text() {
+      return typeof body === "string" ? body : JSON.stringify(body);
+    },
+    async json() {
+      return typeof body === "string" ? JSON.parse(body) : body;
+    },
+  };
+}
+
+function createCompanySkillDb() {
+  const rows: Array<Record<string, unknown>> = [];
+
+  const cloneRows = () => rows.map((row) => ({ ...row }));
+  const buildQuery = () => {
+    const query = {
+      where: vi.fn(() => query),
+      orderBy: vi.fn(async () => cloneRows()),
+      then: (onFulfilled?: (value: Array<Record<string, unknown>>) => unknown, onRejected?: (reason: unknown) => unknown) =>
+        Promise.resolve(cloneRows()).then(onFulfilled, onRejected),
+    };
+    return query;
+  };
+
+  return {
+    rows,
+    select: vi.fn(() => ({
+      from: vi.fn(() => buildQuery()),
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn((values: Record<string, unknown>) => ({
+        returning: vi.fn(async () => {
+          const row = {
+            id: randomUUID(),
+            createdAt: new Date(),
+            ...values,
+          };
+          rows.push(row);
+          return [row];
+        }),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn((values: Record<string, unknown>) => ({
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => {
+            if (rows.length === 0) return [];
+            rows[0] = { ...rows[0], ...values };
+            return [{ ...rows[0] }];
+          }),
+        })),
+      })),
+    })),
+    delete: vi.fn(() => ({
+      where: vi.fn(async () => {
+        rows.splice(0, rows.length);
+        return [];
+      }),
+    })),
+  };
+}
+
+function hideBundledPaperclipSkills() {
+  const bundledRoot = path.resolve(process.cwd(), "skills");
+  const originalStat = fs.stat.bind(fs);
+  vi.spyOn(fs, "stat").mockImplementation(async (targetPath) => {
+    if (path.resolve(String(targetPath)) === bundledRoot) {
+      const error = new Error(`ENOENT: no such file or directory, stat '${bundledRoot}'`) as NodeJS.ErrnoException;
+      error.code = "ENOENT";
+      throw error;
+    }
+    return originalStat(targetPath);
+  });
 }
 
 describe("company skill import source parsing", () => {
@@ -88,6 +173,7 @@ describe("company skill import source parsing", () => {
 
 describe("project workspace skill discovery", () => {
   it("normalizes GitHub skill directories for blob imports and legacy metadata", () => {
+    expect(normalizeGitHubSkillDirectory(".", "root-skill")).toBe("");
     expect(normalizeGitHubSkillDirectory("retro/.", "retro")).toBe("retro");
     expect(normalizeGitHubSkillDirectory("retro/SKILL.md", "retro")).toBe("retro");
     expect(normalizeGitHubSkillDirectory("SKILL.md", "root-skill")).toBe("");
@@ -225,5 +311,90 @@ describe("missing local skill reconciliation", () => {
     ]);
 
     expect(missingIds).toEqual(["skill-1"]);
+  });
+});
+
+describe("root skill imports", () => {
+  it("imports support files for a local root skill source", async () => {
+    hideBundledPaperclipSkills();
+    const workspace = await makeTempDir("paperclip-import-root-local-");
+    await fs.mkdir(path.join(workspace, "references"), { recursive: true });
+    await fs.mkdir(path.join(workspace, "scripts"), { recursive: true });
+    await fs.writeFile(
+      path.join(workspace, "SKILL.md"),
+      "---\nname: Root Skill\n---\n\n# Root Skill\n",
+      "utf8",
+    );
+    await fs.writeFile(path.join(workspace, "references", "checklist.md"), "# Checklist\n", "utf8");
+    await fs.writeFile(path.join(workspace, "scripts", "run.sh"), "echo local\n", "utf8");
+
+    const db = createCompanySkillDb();
+    const svc = companySkillService(db as any);
+
+    const result = await svc.importFromSource("33333333-3333-4333-8333-333333333333", workspace);
+
+    expect(new Set(result.imported[0]?.fileInventory.map((entry) => entry.path))).toEqual(new Set([
+      "SKILL.md",
+      "references/checklist.md",
+      "scripts/run.sh",
+    ]));
+
+    const reference = await svc.readFile(
+      "33333333-3333-4333-8333-333333333333",
+      result.imported[0]!.id,
+      "references/checklist.md",
+    );
+    expect(reference?.content).toBe("# Checklist\n");
+  });
+
+  it("imports support files for a GitHub root skill source", async () => {
+    hideBundledPaperclipSkills();
+    const pinnedRef = "1234567890abcdef1234567890abcdef12345678";
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://api.github.com/repos/acme/root-skill/commits/main") {
+        return createResponse(200, { sha: pinnedRef });
+      }
+      if (url === `https://api.github.com/repos/acme/root-skill/git/trees/${pinnedRef}?recursive=1`) {
+        return createResponse(200, {
+          tree: [
+            { path: "SKILL.md", type: "blob" },
+            { path: "references/checklist.md", type: "blob" },
+            { path: "scripts/run.sh", type: "blob" },
+          ],
+        });
+      }
+      if (url === `https://raw.githubusercontent.com/acme/root-skill/${pinnedRef}/SKILL.md`) {
+        return createResponse(200, "---\nname: Root Skill\n---\n\n# Root Skill\n");
+      }
+      if (url === `https://raw.githubusercontent.com/acme/root-skill/${pinnedRef}/references/checklist.md`) {
+        return createResponse(200, "# Remote Checklist\n");
+      }
+      if (url === `https://raw.githubusercontent.com/acme/root-skill/${pinnedRef}/scripts/run.sh`) {
+        return createResponse(200, "echo remote\n");
+      }
+      return createResponse(404, "not found");
+    }));
+
+    const db = createCompanySkillDb();
+    const svc = companySkillService(db as any);
+
+    const result = await svc.importFromSource(
+      "33333333-3333-4333-8333-333333333333",
+      "https://github.com/acme/root-skill/tree/main",
+    );
+
+    expect(new Set(result.imported[0]?.fileInventory.map((entry) => entry.path))).toEqual(new Set([
+      "SKILL.md",
+      "references/checklist.md",
+      "scripts/run.sh",
+    ]));
+
+    const reference = await svc.readFile(
+      "33333333-3333-4333-8333-333333333333",
+      result.imported[0]!.id,
+      "references/checklist.md",
+    );
+    expect(reference?.content).toBe("# Remote Checklist\n");
   });
 });
