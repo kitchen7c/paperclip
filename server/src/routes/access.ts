@@ -14,6 +14,7 @@ import type { Db } from "@paperclipai/db";
 import {
   agentApiKeys,
   authUsers,
+  companies,
   invites,
   joinRequests
 } from "@paperclipai/db";
@@ -170,10 +171,50 @@ interface AvailableSkill {
   isPaperclipManaged: boolean;
 }
 
-function resolveAgentWorkingSkillsDir(agent: { adapterConfig: Record<string, unknown> | null | undefined }): string | null {
+function resolveCodexSkillsDir(homeDir: string, env: NodeJS.ProcessEnv = process.env): string {
+  const codexHome =
+    typeof env.CODEX_HOME === "string" && env.CODEX_HOME.trim().length > 0
+      ? path.resolve(env.CODEX_HOME.trim())
+      : path.join(homeDir, ".codex");
+  return path.join(codexHome, "skills");
+}
+
+function resolveAvailableSkillsDir(
+  adapterType?: string | null,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const homeDir = env.HOME || env.USERPROFILE || "";
+  const normalizedAdapterType = typeof adapterType === "string" ? adapterType.trim() : "";
+  if (!homeDir) return null;
+
+  switch (normalizedAdapterType) {
+    case "":
+    case "claude_local":
+    case "hermes_local":
+    case "opencode_local":
+      return path.join(homeDir, ".claude", "skills");
+    case "codex_local":
+      return resolveCodexSkillsDir(homeDir, env);
+    case "cursor":
+      return path.join(homeDir, ".cursor", "skills");
+    case "gemini_local":
+      return path.join(homeDir, ".gemini", "skills");
+    case "pi_local":
+      return path.join(homeDir, ".pi", "agent", "skills");
+    default:
+      return null;
+  }
+}
+
+function resolveAgentWorkingSkillsDir(agent: {
+  adapterType?: string | null;
+  adapterConfig: Record<string, unknown> | null | undefined;
+}): string | null {
   const cwd = agent.adapterConfig?.cwd;
-  if (typeof cwd !== "string" || cwd.trim().length === 0) return null;
-  return path.join(path.resolve(cwd.trim()), "skills");
+  if (typeof cwd === "string" && cwd.trim().length > 0) {
+    return path.join(path.resolve(cwd.trim()), "skills");
+  }
+  return resolveAvailableSkillsDir(agent.adapterType);
 }
 
 /** Discover available local skills from a specific skills directory. */
@@ -862,7 +903,8 @@ export function normalizeAgentDefaultsForJoin(input: {
 function toInviteSummaryResponse(
   req: Request,
   token: string,
-  invite: typeof invites.$inferSelect
+  invite: typeof invites.$inferSelect,
+  companyName: string | null = null
 ) {
   const baseUrl = requestBaseUrl(req);
   const onboardingPath = `/api/invites/${token}/onboarding`;
@@ -871,6 +913,7 @@ function toInviteSummaryResponse(
   return {
     id: invite.id,
     companyId: invite.companyId,
+    companyName,
     inviteType: invite.inviteType,
     allowedJoinTypes: invite.allowedJoinTypes,
     expiresAt: invite.expiresAt,
@@ -999,6 +1042,7 @@ function buildInviteOnboardingManifest(
   token: string,
   invite: typeof invites.$inferSelect,
   opts: {
+    companyName?: string | null;
     deploymentMode: DeploymentMode;
     deploymentExposure: DeploymentExposure;
     bindHost: string;
@@ -1030,7 +1074,12 @@ function buildInviteOnboardingManifest(
   });
 
   return {
-    invite: toInviteSummaryResponse(req, token, invite),
+    invite: toInviteSummaryResponse(
+      req,
+      token,
+      invite,
+      opts.companyName ?? null
+    ),
     onboarding: {
       instructions:
         "Join as an OpenClaw Gateway agent, save your one-time claim secret, wait for board approval, then claim your API key. Save the claim response token to ~/.openclaw/workspace/paperclip-claimed-api-key.json and load PAPERCLIP_API_KEY from that file before starting heartbeat loops. You MUST submit adapterType='openclaw_gateway', set agentDefaultsPayload.url to your ws:// or wss:// OpenClaw gateway endpoint, and include agentDefaultsPayload.headers.x-openclaw-token (or legacy x-openclaw-auth).",
@@ -1090,6 +1139,7 @@ export function buildInviteOnboardingTextDocument(
   token: string,
   invite: typeof invites.$inferSelect,
   opts: {
+    companyName?: string | null;
     deploymentMode: DeploymentMode;
     deploymentExposure: DeploymentExposure;
     bindHost: string;
@@ -1138,6 +1188,10 @@ export function buildInviteOnboardingTextDocument(
     - allowedJoinTypes: ${invite.allowedJoinTypes}
     - expiresAt: ${invite.expiresAt.toISOString()}
   `);
+
+  if (manifest.invite.companyName) {
+    lines.push(`- companyName: ${manifest.invite.companyName}`);
+  }
 
   if (onboarding.inviteMessage) {
     appendBlock(`
@@ -1890,8 +1944,10 @@ export function accessRoutes(
 
   router.get("/skills/available", async (req, res) => {
     const agentId = typeof req.query.agentId === "string" ? req.query.agentId.trim() : "";
+    const adapterType =
+      typeof req.query.adapterType === "string" ? req.query.adapterType.trim() : undefined;
     if (!agentId) {
-      res.json({ skills: [] });
+      res.json({ skills: listAvailableSkills(resolveAvailableSkillsDir(adapterType)) });
       return;
     }
 
@@ -1902,6 +1958,16 @@ export function accessRoutes(
     const skillsDir = resolveAgentWorkingSkillsDir(agent);
     res.json({ skills: listAvailableSkills(skillsDir) });
   });
+
+  async function getInviteCompanyName(companyId: string | null) {
+    if (!companyId) return null;
+    const company = await db
+      .select({ name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+    return company?.name ?? null;
+  }
 
   router.get("/skills/index", (_req, res) => {
     res.json({
@@ -1959,11 +2025,18 @@ export function accessRoutes(
         }
       });
 
-      const inviteSummary = toInviteSummaryResponse(req, token, created);
+      const companyName = await getInviteCompanyName(created.companyId);
+      const inviteSummary = toInviteSummaryResponse(
+        req,
+        token,
+        created,
+        companyName
+      );
       res.status(201).json({
         ...created,
         token,
         inviteUrl: `/invite/${token}`,
+        companyName,
         onboardingTextPath: inviteSummary.onboardingTextPath,
         onboardingTextUrl: inviteSummary.onboardingTextUrl,
         inviteMessage: inviteSummary.inviteMessage
@@ -2004,11 +2077,18 @@ export function accessRoutes(
         }
       });
 
-      const inviteSummary = toInviteSummaryResponse(req, token, created);
+      const companyName = await getInviteCompanyName(created.companyId);
+      const inviteSummary = toInviteSummaryResponse(
+        req,
+        token,
+        created,
+        companyName
+      );
       res.status(201).json({
         ...created,
         token,
         inviteUrl: `/invite/${token}`,
+        companyName,
         onboardingTextPath: inviteSummary.onboardingTextPath,
         onboardingTextUrl: inviteSummary.onboardingTextUrl,
         inviteMessage: inviteSummary.inviteMessage
@@ -2033,7 +2113,8 @@ export function accessRoutes(
       throw notFound("Invite not found");
     }
 
-    res.json(toInviteSummaryResponse(req, token, invite));
+    const companyName = await getInviteCompanyName(invite.companyId);
+    res.json(toInviteSummaryResponse(req, token, invite, companyName));
   });
 
   router.get("/invites/:token/onboarding", async (req, res) => {
@@ -2048,7 +2129,11 @@ export function accessRoutes(
       throw notFound("Invite not found");
     }
 
-    res.json(buildInviteOnboardingManifest(req, token, invite, opts));
+    const companyName = await getInviteCompanyName(invite.companyId);
+    res.json(buildInviteOnboardingManifest(req, token, invite, {
+      ...opts,
+      companyName
+    }));
   });
 
   router.get("/invites/:token/onboarding.txt", async (req, res) => {
@@ -2063,9 +2148,15 @@ export function accessRoutes(
       throw notFound("Invite not found");
     }
 
+    const companyName = await getInviteCompanyName(invite.companyId);
     res
       .type("text/plain; charset=utf-8")
-      .send(buildInviteOnboardingTextDocument(req, token, invite, opts));
+      .send(
+        buildInviteOnboardingTextDocument(req, token, invite, {
+          ...opts,
+          companyName
+        })
+      );
   });
 
   router.get("/invites/:token/test-resolution", async (req, res) => {
@@ -2475,11 +2566,15 @@ export function accessRoutes(
 
       const response = toJoinRequestResponse(created);
       if (claimSecret) {
+        const companyName = await getInviteCompanyName(invite.companyId);
         const onboardingManifest = buildInviteOnboardingManifest(
           req,
           token,
           invite,
-          opts
+          {
+            ...opts,
+            companyName
+          }
         );
         res.status(202).json({
           ...response,
