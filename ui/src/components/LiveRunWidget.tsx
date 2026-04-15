@@ -6,8 +6,8 @@ import { queryKeys } from "../lib/queryKeys";
 import { formatDateTime } from "../lib/utils";
 import { ExternalLink, Square } from "lucide-react";
 import { Identity } from "./Identity";
+import { RunChatSurface } from "./RunChatSurface";
 import { StatusBadge } from "./StatusBadge";
-import { RunTranscriptView } from "./transcript/RunTranscriptView";
 import { useLiveRunTranscripts } from "./transcript/useLiveRunTranscripts";
 import { useTranslation } from "react-i18next";
 
@@ -94,7 +94,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">
           {t("Live Runs")}</div>
         <div className="mt-1 text-xs text-muted-foreground">
-          Streamed with the same transcript UI used on the full run detail page.
+          Uses the shared chat-style run surface from issue activity.
         </div>
       </div>
 
@@ -142,13 +142,11 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
               </div>
 
               <div className="max-h-[320px] overflow-y-auto pr-1">
-                <RunTranscriptView
-                  entries={transcript}
-                  density="compact"
-                  limit={8}
-                  streaming={isActive}
-                  collapseStdout
-                  emptyMessage={hasOutputForRun(run.id) ? "Waiting for transcript parsing..." : "Waiting for run output..."}
+                <RunChatSurface
+                  run={run}
+                  transcript={transcript}
+                  hasOutput={hasOutputForRun(run.id)}
+                  companyId={companyId}
                 />
               </div>
             </section>

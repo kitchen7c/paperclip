@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { usePanel } from "../context/PanelContext";
+import { cn } from "../lib/utils";
 
 function resolveScrollTarget() {
   const mainContent = document.getElementById("main-content");
@@ -33,8 +35,9 @@ function distanceFromBottom(target: ReturnType<typeof resolveScrollTarget>) {
  * On desktop that is `#main-content`; on mobile it falls back to window/page scroll.
  */
 export function ScrollToBottom() {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
+  const { panelVisible, panelContent } = usePanel();
 
   useEffect(() => {
     const check = () => {
@@ -72,7 +75,10 @@ export function ScrollToBottom() {
   return (
     <button
       onClick={scroll}
-      className="fixed bottom-[calc(1.5rem+5rem+env(safe-area-inset-bottom))] right-6 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-accent transition-colors md:bottom-6"
+      className={cn(
+        "fixed bottom-[calc(1.5rem+5rem+env(safe-area-inset-bottom))] right-6 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-accent transition-[background-color,right] duration-200 md:bottom-6",
+        panelVisible && panelContent && "md:right-[calc(320px+1.5rem)]",
+      )}
       aria-label={t("Scroll to bottom")}
     >
       <ArrowDown className="h-4 w-4" />
